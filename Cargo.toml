@@ -1,0 +1,20 @@
+[package]
+name = "urban_recreation_rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.144", features = ["derive"] }
+simd-json = { version = "0.6.0", features = ["allow-non-simd"] }
+lazy_static = "1.4.0"
+serde_repr = "0.1.9"
+chrono = "0.4.22"
+rand = "0.8.5"
+itertools = "0.10.3"
+colored = "2.0.0"
+regex = "1.6.0"
+
+[profile.release]
+debug = true
