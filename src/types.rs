@@ -161,7 +161,7 @@ impl Display for Clan {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Rarity {
     COMMON,
     UNCOMMON,

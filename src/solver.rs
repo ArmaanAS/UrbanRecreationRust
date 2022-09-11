@@ -1,8 +1,4 @@
-use std::{
-    slice::Iter,
-    thread,
-    time::{Duration, Instant},
-};
+use std::{slice::Iter, time::Instant};
 
 use colored::Colorize;
 use lazy_static::lazy_static;
@@ -41,27 +37,27 @@ impl Solver {
             battle::PRINT = false;
             solve_count = SOLVE_COUNT;
         }
-        let handler = thread::spawn(|| unsafe {
-            loop {
-                let solve_count = SOLVE_COUNT;
+        // let handler = thread::spawn(|| unsafe {
+        //     loop {
+        //         let solve_count = SOLVE_COUNT;
 
-                for _ in 0..10 {
-                    let solve_count = SOLVE_COUNT;
+        //         for _ in 0..10 {
+        //             let solve_count = SOLVE_COUNT;
 
-                    thread::sleep(Duration::from_millis(500));
+        //             thread::sleep(Duration::from_millis(500));
 
-                    if solve_count == SOLVE_COUNT {
-                        return;
-                    }
-                }
+        //             if solve_count == SOLVE_COUNT {
+        //                 return;
+        //             }
+        //         }
 
-                println!(
-                    "{} {} /5s",
-                    " Solve Count ".white().on_magenta(),
-                    SOLVE_COUNT - solve_count
-                );
-            }
-        });
+        //         println!(
+        //             "{} {} /5s",
+        //             " Solve Count ".white().on_magenta(),
+        //             SOLVE_COUNT - solve_count
+        //         );
+        //     }
+        // });
         let now = Instant::now();
         let best = if game.s1.is_none() != game.s2.is_none() {
             Solver::solve_second(game)
@@ -84,19 +80,11 @@ impl Solver {
                 solves as f32 / elapsed.as_secs_f32() / 1000f32
             );
         }
-        handler.join().unwrap();
+        // handler.join().unwrap();
         best
     }
 
     pub fn solve_second(game: &Game) -> SelectionResult {
-        // {
-        //     let status = game.status();
-        //     if status != GameStatus::Playing {
-        //         match status {
-        //             GameStatus::Draw => return Sele
-        //         }
-        //     }
-        // }
         unsafe {
             SOLVE_COUNT += 1;
         }

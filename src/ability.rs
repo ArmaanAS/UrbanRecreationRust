@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::{collections::HashMap, fs::File, path::Path, sync::Mutex};
 
 use colored::Colorize;
 use lazy_static::lazy_static;
@@ -31,13 +31,13 @@ lazy_static! {
             File::open(Path::new("./assets/compiled.json")).expect("file should open read only");
         from_reader(data_file).expect("Error while reading JSON file")
     };
+    pub static ref CONDITION_CLANS: Mutex<HashMap<u8, Vec<Clan>>> = Mutex::new(HashMap::new());
     pub static ref CLANS_REGEX: Regex = Regex::new(r"\[[Cc]lan:(\d+)\]").unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize_repr, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize_repr, PartialEq)]
 #[repr(usize)]
 pub enum AbilityType {
-    None = 0,
     Global = 1,
     Ability = 2,
     Bonus = 3,
@@ -47,7 +47,7 @@ pub enum AbilityType {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Ability {
-    pub ability: String,
+    // pub ability: String,
     pub ability_type: AbilityType,
     pub modifiers: Vec<Modifier>,
     pub conditions: Vec<Condition>,
@@ -89,10 +89,12 @@ impl Ability {
 
         match self.ability_type {
             AbilityType::Ability | AbilityType::GlobalAbility => {
-                !data.card.borrow().ability.attr.is_blocked()
+                // !data.card.borrow().ability.attr.is_blocked()
+                !data.card.borrow().ability.is_blocked()
             }
             AbilityType::Bonus | AbilityType::GlobalBonus => {
-                !data.card.borrow().bonus.attr.is_blocked()
+                // !data.card.borrow().bonus.attr.is_blocked()
+                !data.card.borrow().bonus.is_blocked()
             }
             _ => true,
         }
@@ -109,7 +111,7 @@ impl Ability {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 #[serde(remote = "Condition")]
 pub enum Condition {
     Courage,
@@ -134,8 +136,8 @@ pub enum Condition {
     Reanimate,
     Stop,
     // StopBonus,
-    Infiltrate(Vec<Clan>),
-    Versus(Vec<Clan>),
+    Infiltrate(u8),
+    Versus(u8),
     // Other(String),
     #[serde(other)]
     None,
@@ -152,10 +154,15 @@ impl<'de> Deserialize<'de> for Condition {
                 .captures_iter(s.as_str())
                 .map(|m| Clan::from(*&m[1].parse::<u8>().unwrap()))
                 .collect::<Vec<Clan>>();
+
+            let mut cache = CONDITION_CLANS.lock().unwrap();
+            let key = cache.len() as u8;
+            cache.insert(key, clans);
+
             if s.starts_with("Versus") {
-                Ok(Condition::Versus(clans))
+                Ok(Condition::Versus(key))
             } else {
-                Ok(Condition::Infiltrate(clans))
+                Ok(Condition::Infiltrate(key))
             }
         } else {
             Condition::deserialize(s.into_deserializer())
@@ -168,35 +175,36 @@ impl Condition {
         let player = data.player.borrow();
         let card = data.card.borrow();
         let opp_card = data.opp_card.borrow();
-        let round = &data.round;
-        let hand = data.round.hand;
-        let opp_hand = data.round.opp_hand;
+        let hand = data.hand;
+        let opp_hand = data.opp_hand;
         match self {
             Condition::Defeat => player.won == RoundWin::LOSE,
             // Condition::Night => round.day == false,
             // Condition::Day => round.day == true,
             Condition::Night | Condition::Day => true,
-            Condition::Courage => round.first,
+            Condition::Courage => data.first,
             Condition::Revenge => player.won_previous == RoundWin::LOSE,
             Condition::Confidence => player.won_previous == RoundWin::WIN,
-            Condition::Reprisal => !round.first,
+            Condition::Reprisal => !data.first,
             Condition::Killshot => card.attack.value >= opp_card.attack.value * 2,
             Condition::Backlash => player.won == RoundWin::WIN,
             Condition::Reanimate => player.won == RoundWin::LOSE && player.life == 0,
-            Condition::Stop => card.ability.attr.cancelled != 0,
+            Condition::Stop => card.ability.cancelled != 0,
             Condition::Symmetry => card.index == opp_card.index,
             Condition::Asymmetry => card.index != opp_card.index,
-            Condition::Infiltrate(clans) => {
+            Condition::Infiltrate(key) => {
                 println!("{}", hand.oculus_clan);
                 if hand.oculus_clan == Clan::None {
                     false
                 } else {
+                    let clans = &CONDITION_CLANS.lock().unwrap()[key];
                     clans.contains(&hand.oculus_clan)
                 }
             }
-            Condition::Versus(clans) => {
+            Condition::Versus(key) => {
                 for card in opp_hand.cards.iter() {
-                    if clans.contains(&card.borrow().clan) {
+                    let clans = &CONDITION_CLANS.lock().unwrap()[key];
+                    if clans.contains(&card.borrow().clan()) {
                         return true;
                     }
                 }

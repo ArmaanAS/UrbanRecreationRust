@@ -115,7 +115,7 @@ pub enum Recover {
     Life = 2,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct BasicModifier {
     #[serde(rename = "eventTime")]
     event_time: EventTime,
@@ -149,10 +149,10 @@ impl BasicModifier {
             Per::Damage => card.damage.value,
             Per::Life => player.life,
             Per::Pillz => player.pillz,
-            Per::Support => data.round.hand.card_clan_count(player_card.index),
-            Per::Brawl => data.round.opp_hand.card_clan_count(opp_card.index),
-            Per::Growth => 1 + data.round.round,
-            Per::Degrowth => 4 - data.round.round,
+            Per::Support => data.hand.card_clan_count(player_card.index),
+            Per::Brawl => data.opp_hand.card_clan_count(opp_card.index),
+            Per::Growth => 1 + data.round,
+            Per::Degrowth => 4 - data.round,
             Per::Equalizer => opp_card.level,
             Per::Symmetry => (player_card.index == opp_card.index) as u8,
             Per::Asymmetry => (player_card.index != opp_card.index) as u8,
@@ -257,7 +257,7 @@ impl BasicModifier {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct CancelModifier {
     #[serde(rename = "eventTime")]
     event_time: EventTime,
@@ -277,8 +277,10 @@ impl CancelModifier {
             Cancel::Attack => opp_card.attack.attr.cancel(),
             Cancel::Pillz => opp_card.pillz.cancel(),
             Cancel::Life => opp_card.life.cancel(),
-            Cancel::Ability => opp_card.ability.attr.cancel(),
-            Cancel::Bonus => opp_card.bonus.attr.cancel(),
+            // Cancel::Ability => opp_card.ability.attr.cancel(),
+            // Cancel::Bonus => opp_card.bonus.attr.cancel(),
+            Cancel::Ability => opp_card.ability.cancel(),
+            Cancel::Bonus => opp_card.bonus.cancel(),
         }
     }
     pub fn undo(&mut self, data: &BattleData) {
@@ -290,8 +292,10 @@ impl CancelModifier {
             Cancel::Attack => opp_card.attack.attr.remove_cancel(),
             Cancel::Pillz => opp_card.pillz.remove_cancel(),
             Cancel::Life => opp_card.life.remove_cancel(),
-            Cancel::Ability => opp_card.ability.attr.remove_cancel(),
-            Cancel::Bonus => opp_card.bonus.attr.remove_cancel(),
+            // Cancel::Ability => opp_card.ability.attr.remove_cancel(),
+            // Cancel::Bonus => opp_card.bonus.attr.remove_cancel(),
+            Cancel::Ability => opp_card.ability.remove_cancel(),
+            Cancel::Bonus => opp_card.bonus.remove_cancel(),
         }
     }
     // fn can_apply(&self, data: &BattleData) -> bool {
@@ -299,7 +303,7 @@ impl CancelModifier {
     // }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct CopyModifier {
     #[serde(rename = "eventTime")]
     event_time: EventTime,
@@ -343,12 +347,12 @@ impl CopyModifier {
                 return Some(ability);
             }
             Copy::Infiltrate => {
-                let clan = data.round.hand.oculus_clan;
+                let clan = data.hand.oculus_clan;
                 if clan != Clan::None {
-                    for (i, clan_card) in data.round.hand.cards.iter().enumerate() {
+                    for (i, clan_card) in data.hand.cards.iter().enumerate() {
                         if i != card.index {
                             let clan_card = clan_card.borrow();
-                            if clan_card.clan == clan {
+                            if clan_card.clan() == clan {
                                 card.bonus = clan_card.bonus.clone();
                                 card.bonus_id = clan_card.bonus_id;
 
@@ -363,7 +367,7 @@ impl CopyModifier {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct ExchangeModifier {
     #[serde(rename = "eventTime")]
     event_time: EventTime,
@@ -402,7 +406,7 @@ impl ExchangeModifier {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct ProtectionModifier {
     #[serde(rename = "eventTime")]
     event_time: EventTime,
@@ -430,12 +434,16 @@ impl ProtectionModifier {
                     opp_card.attack.attr.protect();
                 }
                 Protect::Ability => {
-                    card.ability.attr.protect();
-                    opp_card.ability.attr.protect();
+                    // card.ability.attr.protect();
+                    // opp_card.ability.attr.protect();
+                    card.ability.protect();
+                    opp_card.ability.protect();
                 }
                 Protect::Bonus => {
-                    card.bonus.attr.protect();
-                    opp_card.bonus.attr.protect();
+                    // card.bonus.attr.protect();
+                    // opp_card.bonus.attr.protect();
+                    card.bonus.protect();
+                    opp_card.bonus.protect();
                 }
             };
         } else {
@@ -443,15 +451,17 @@ impl ProtectionModifier {
                 Protect::Power => card.power.attr.protect(),
                 Protect::Damage => card.damage.attr.protect(),
                 Protect::Attack => card.attack.attr.protect(),
-                Protect::Ability => card.ability.attr.protect(),
-                Protect::Bonus => card.bonus.attr.protect(),
+                // Protect::Ability => card.ability.attr.protect(),
+                // Protect::Bonus => card.bonus.attr.protect(),
+                Protect::Ability => card.ability.protect(),
+                Protect::Bonus => card.bonus.protect(),
             };
             println!("{:?}", card.power.attr);
         }
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct RecoverModifier {
     #[serde(rename = "eventTime")]
     event_time: EventTime,
@@ -475,7 +485,7 @@ impl RecoverModifier {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Modifier {
     Basic(BasicModifier),

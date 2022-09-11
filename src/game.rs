@@ -14,7 +14,8 @@ macro_rules! println {
 }
 
 use crate::{
-    battle::{BattleData, Events, PlayerRound},
+    ability::AbilityType,
+    battle::{BattleData, Events},
     card::Hand,
     modifiers::EventTime,
     types::Clan,
@@ -235,6 +236,23 @@ impl Game {
         let h2 = Hand::random_hand_clan(Clan::Nightmare);
         Game::new(h1, h2)
     }
+    pub fn has_global(&self) -> bool {
+        for card in self.h1.cards.iter() {
+            match card.borrow().get_ability().ability_type {
+                AbilityType::Global | AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
+                    return true
+                }
+                _ => (),
+            }
+            match card.borrow().get_bonus().ability_type {
+                AbilityType::Global | AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
+                    return true
+                }
+                _ => (),
+            }
+        }
+        false
+    }
     pub fn status(&self) -> GameStatus {
         if self.s1.is_none() != self.s2.is_none() {
             return GameStatus::Playing;
@@ -446,6 +464,9 @@ impl Game {
         let total_pillz1 = if fury1 { pillz1 + 3 } else { pillz1 };
         let total_pillz2 = if fury2 { pillz2 + 3 } else { pillz2 };
 
+        self.events1.borrow_mut().init();
+        self.events2.borrow_mut().init();
+
         {
             let mut p1 = self.p1.borrow_mut();
             let mut p2 = self.p2.borrow_mut();
@@ -459,12 +480,10 @@ impl Game {
 
         let first_turn = self.get_first_turn();
         let battle_data1 = BattleData {
-            round: PlayerRound {
-                round: self.round,
-                first: first_turn == PlayerType::Player,
-                hand: &self.h1,
-                opp_hand: &self.h2,
-            },
+            round: self.round,
+            first: first_turn == PlayerType::Player,
+            hand: &self.h1,
+            opp_hand: &self.h2,
             player: &self.p1,
             card: card1,
             player_pillz_used: total_pillz1,
@@ -474,12 +493,10 @@ impl Game {
             events: &self.events1,
         };
         let battle_data2 = BattleData {
-            round: PlayerRound {
-                round: self.round,
-                first: first_turn == PlayerType::Opponent,
-                hand: &self.h2,
-                opp_hand: &self.h1,
-            },
+            round: self.round,
+            first: first_turn == PlayerType::Opponent,
+            hand: &self.h2,
+            opp_hand: &self.h1,
             player: &self.p2,
             card: &card2,
             player_pillz_used: total_pillz2,
