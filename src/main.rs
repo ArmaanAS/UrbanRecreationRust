@@ -37,6 +37,18 @@ fn main() {
         if args.len() == 10 {
             flip = 1;
         }
+        // let best = Solver::simulate(
+        //     args[1].as_str(),
+        //     args[2].as_str(),
+        //     args[3].as_str(),
+        //     args[4].as_str(),
+        //     args[5].as_str(),
+        //     args[6].as_str(),
+        //     args[7].as_str(),
+        //     args[8].as_str(),
+        //     flip,
+        // );
+        // println!("{:?}", best);
     } else {
         h1 = Hand::from_names("Anagone", "Doela", "Elios", "Galahad");
         h2 = Hand::from_names("Murray", "Petra", "Buck", "Keile");
@@ -62,7 +74,7 @@ fn main() {
         println!("{:?}", Solver::solve(&game));
     }
 
-    return;
+    // return;
 
     println!("{} turn", game.get_turn_name());
     for line in io::stdin().lines() {
@@ -93,7 +105,7 @@ fn main() {
             break;
         }
 
-        if game.get_turn() == PlayerType::Player {
+        if game.get_turn() == PlayerType::Player || game.round != 0 {
             println!("{:?}", Solver::solve(&game));
         }
 

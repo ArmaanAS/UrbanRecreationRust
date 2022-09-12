@@ -1,11 +1,5 @@
 #![allow(dead_code)]
-use chrono::{Datelike, NaiveDateTime};
-use colored::{Color, Colorize};
-use lazy_static::lazy_static;
-use rand::{seq::SliceRandom, thread_rng};
-use regex::Captures;
-use serde::Deserialize;
-use simd_json::from_reader;
+
 use std::{
     cell::{Ref, RefCell},
     collections::{HashMap, HashSet},
@@ -13,6 +7,14 @@ use std::{
     fs::File,
     path::Path,
 };
+
+use chrono::{Datelike, NaiveDateTime};
+use colored::{Color, Colorize};
+use lazy_static::lazy_static;
+use rand::{seq::SliceRandom, thread_rng};
+use regex::Captures;
+use serde::Deserialize;
+use simd_json::from_reader;
 
 use crate::{
     ability::{Ability, ABILITIES, CLANS_REGEX},
@@ -104,13 +106,6 @@ pub struct CardStat {
     pub base: u8,
     pub value: u8,
 }
-
-// #[derive(Clone, Copy, Debug)]
-// pub struct CardAbility {
-//     pub attr: CardAttr,
-//     // pub string: AbilityString,
-//     // pub string: Option<String>,
-// }
 
 impl CardStat {
     fn new(val: u8) -> Self {
@@ -515,11 +510,27 @@ impl Card {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Hand {
     pub cards: [RefCell<Card>; 4],
     pub clan_count: [u8; 4],
     pub oculus_clan: Clan,
+}
+
+impl Clone for Hand {
+    #[inline]
+    fn clone(&self) -> Self {
+        Hand {
+            cards: [
+                Clone::clone(&self.cards[0]),
+                Clone::clone(&self.cards[1]),
+                Clone::clone(&self.cards[2]),
+                Clone::clone(&self.cards[3]),
+            ],
+            clan_count: self.clan_count,
+            oculus_clan: self.oculus_clan,
+        }
+    }
 }
 
 // impl Index<usize> for Hand {

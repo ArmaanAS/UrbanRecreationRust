@@ -521,15 +521,4 @@ impl Modifier {
         };
         None
     }
-    // fn can_apply(&self, data: &BattleData) -> bool {
-    //     match self {
-    //         Modifier::Basic(inner) => inner.can_apply(data),
-    //         // Modifier::Cancel(inner) => inner.can_apply(data),
-    //         Modifier::Cancel(_) => true,
-    //         Modifier::Copy(_) => true,
-    //         Modifier::Exchange(_) => true,
-    //         Modifier::Protection(_) => true,
-    //         Modifier::Recover(_) => true,
-    //     }
-    // }
 }

@@ -1,6 +1,14 @@
 use std::cell::{Ref, RefCell};
 
-use colored::{Color, ColoredString, Colorize};
+use colored::{ColoredString, Colorize};
+
+use crate::{
+    ability::AbilityType,
+    battle::{BattleData, Events},
+    card::Hand,
+    modifiers::EventTime,
+    types::Clan,
+};
 
 pub static mut PRINT: bool = true;
 macro_rules! println {
@@ -12,27 +20,17 @@ macro_rules! println {
         }
     }
 }
-
-use crate::{
-    ability::AbilityType,
-    battle::{BattleData, Events},
-    card::Hand,
-    modifiers::EventTime,
-    types::Clan,
-};
+pub static mut BATTLE_COUNT: u32 = 0;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RoundWin {
-    // WIN { pillz_used: u8 },
-    // LOSE { life_lost: u8, pillz_used: u8 },
     WIN,
     LOSE,
     NONE,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Player {
-    pub name: String,
     pub player_type: PlayerType,
     pub life: u8,
     pub life_previous: u8,
@@ -43,9 +41,8 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(name: &str, player_type: PlayerType) -> Self {
+    pub fn new(player_type: PlayerType) -> Self {
         Player {
-            name: name.to_string(),
             player_type,
             life: 12,
             life_previous: 12,
@@ -55,18 +52,15 @@ impl Player {
             won_previous: RoundWin::NONE,
         }
     }
+    fn name(&self) -> ColoredString {
+        if self.player_type == PlayerType::Player {
+            " Player ".bright_white().on_cyan()
+        } else {
+            " Opponent ".bright_white().on_red()
+        }
+    }
     pub fn print(&self) {
-        print!(
-            " {:>22}  ",
-            format!(" {} ", self.name)
-                .bright_white()
-                .on_color(if self.player_type == PlayerType::Player {
-                    Color::Cyan
-                } else {
-                    Color::Red
-                })
-                .to_string()
-        );
+        print!(" {:^10}  ", self.name());
 
         let life_change = 12.min(self.life_previous) as i8 - self.life as i8;
         let life_lost = if life_change > 0 {
@@ -133,7 +127,7 @@ impl Player {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct Selection {
     pub index: usize,
     pub pillz: u8,
@@ -141,6 +135,9 @@ pub struct Selection {
 }
 
 impl Selection {
+    pub fn new(index: usize, pillz: u8, fury: bool) -> Self {
+        Selection { index, pillz, fury }
+    }
     pub fn parse(input: String) -> Option<Selection> {
         let tokens = input.split(" ");
 
@@ -220,8 +217,10 @@ impl Game {
 
         Game {
             round: 0,
-            p1: RefCell::new(Player::new("Player", PlayerType::Player)),
-            p2: RefCell::new(Player::new("Opponent", PlayerType::Opponent)),
+            // p1: RefCell::new(Player::new("Player", PlayerType::Player)),
+            // p2: RefCell::new(Player::new("Opponent", PlayerType::Opponent)),
+            p1: RefCell::new(Player::new(PlayerType::Player)),
+            p2: RefCell::new(Player::new(PlayerType::Opponent)),
             h1,
             h2,
             s1: None,
@@ -240,13 +239,13 @@ impl Game {
         for card in self.h1.cards.iter() {
             match card.borrow().get_ability().ability_type {
                 AbilityType::Global | AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
-                    return true
+                    return true;
                 }
                 _ => (),
             }
             match card.borrow().get_bonus().ability_type {
                 AbilityType::Global | AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
-                    return true
+                    return true;
                 }
                 _ => (),
             }
@@ -333,12 +332,10 @@ impl Game {
             } else {
                 PlayerType::Player
             }
+        } else if self.s2.is_some() {
+            PlayerType::Player
         } else {
-            if self.s2.is_some() {
-                PlayerType::Player
-            } else {
-                PlayerType::Opponent
-            }
+            PlayerType::Opponent
         }
     }
     pub fn get_turn_name(&self) -> ColoredString {
@@ -593,6 +590,10 @@ impl Game {
         self.print_battle(attack1, attack2);
 
         self.round += 1;
+
+        unsafe {
+            BATTLE_COUNT += 1;
+        }
     }
 
     pub fn select(&mut self, index: usize, pillz: u8, fury: bool) -> bool {
@@ -609,18 +610,16 @@ impl Game {
                 self.print_status();
                 false
             }
+        } else if self.s2.is_some() {
+            self.s1 = s;
+            self.battle();
+            self.s1 = None;
+            self.s2 = None;
+            true
         } else {
-            if self.s2.is_some() {
-                self.s1 = s;
-                self.battle();
-                self.s1 = None;
-                self.s2 = None;
-                true
-            } else {
-                self.s2 = s;
-                self.print_status();
-                false
-            }
+            self.s2 = s;
+            self.print_status();
+            false
         }
     }
 

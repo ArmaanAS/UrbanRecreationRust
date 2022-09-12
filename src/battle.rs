@@ -1,5 +1,6 @@
-use colored::Colorize;
 use std::cell::RefCell;
+
+use colored::Colorize;
 
 use crate::{
     ability::{Ability, AbilityType},
@@ -19,11 +20,21 @@ macro_rules! println {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Events {
     pub events: Option<[Vec<Ability>; 10]>,
     pub global: Option<[Option<Vec<Ability>>; 10]>,
     global_count: usize,
+}
+
+impl Clone for Events {
+    fn clone(&self) -> Self {
+        Events {
+            events: None,
+            global: Clone::clone(&self.global),
+            global_count: self.global_count,
+        }
+    }
 }
 
 impl Default for Events {
@@ -101,7 +112,7 @@ impl Events {
                 }
 
                 let len = events.len();
-                events.retain(|ab| ab.remove == None);
+                events.retain(|ab| ab.remove == false);
                 self.global_count -= len - events.len();
                 if events.len() == 0 {
                     clear = true;

@@ -1,11 +1,17 @@
-use std::{slice::Iter, time::Instant};
+use std::{
+    slice::Iter,
+    sync::{Arc, Mutex},
+    thread,
+    time::Instant,
+};
 
 use colored::Colorize;
 use lazy_static::lazy_static;
 
 use crate::{
     ability, battle,
-    game::{self, Game, GameStatus, PlayerType, Selection},
+    card::Hand,
+    game::{self, Game, GameStatus, PlayerType, Selection, BATTLE_COUNT},
     modifiers,
 };
 
@@ -26,16 +32,23 @@ pub enum SelectionResult {
     Draw(Selection),
     Opponent(Selection),
 }
+fn toggle_print() {
+    unsafe {
+        ability::PRINT = !ability::PRINT;
+        game::PRINT = !game::PRINT;
+        modifiers::PRINT = !modifiers::PRINT;
+        battle::PRINT = !battle::PRINT;
+    }
+}
 
 impl Solver {
     pub fn solve(game: &Game) -> SelectionResult {
         let solve_count: u64;
+        let battle_count: u32;
+        toggle_print();
         unsafe {
-            ability::PRINT = false;
-            game::PRINT = false;
-            modifiers::PRINT = false;
-            battle::PRINT = false;
             solve_count = SOLVE_COUNT;
+            battle_count = BATTLE_COUNT;
         }
         // let handler = thread::spawn(|| unsafe {
         //     loop {
@@ -64,13 +77,10 @@ impl Solver {
         } else {
             Solver::solve_first(game)
         };
+        toggle_print();
         unsafe {
-            ability::PRINT = true;
-            game::PRINT = true;
-            modifiers::PRINT = true;
-            battle::PRINT = true;
-
             let solves = SOLVE_COUNT - solve_count;
+            let battles = BATTLE_COUNT - battle_count;
             let elapsed = now.elapsed();
             println!(
                 "{} {} /{:.1?}secs ({:.0?}k/s) - Final count",
@@ -79,9 +89,142 @@ impl Solver {
                 elapsed.as_secs_f32(),
                 solves as f32 / elapsed.as_secs_f32() / 1000f32
             );
+            println!(
+                "{} {} /{:.1?}secs ({:.0?}k/s) - Final count",
+                " Battle Count ".white().on_bright_purple(),
+                battles,
+                elapsed.as_secs_f32(),
+                battles as f32 / elapsed.as_secs_f32() / 1000f32
+            );
         }
         // handler.join().unwrap();
         best
+    }
+
+    pub fn simulate(
+        c1: &str,
+        c2: &str,
+        c3: &str,
+        c4: &str,
+        c5: &str,
+        c6: &str,
+        c7: &str,
+        c8: &str,
+        flip: u8,
+    ) -> Selection {
+        let solve_count: u64;
+        let battle_count: u32;
+        unsafe {
+            solve_count = SOLVE_COUNT;
+            battle_count = BATTLE_COUNT;
+        }
+        toggle_print();
+        let now = Instant::now();
+        // let count = HashMap::<Selection, u32>::new();
+        let best = Arc::new(Mutex::new(0f32));
+        let best_selection = Arc::new(Mutex::new(Selection::default()));
+        let index = Arc::new(Mutex::new(0));
+        thread::scope(|scope| {
+            for _ in 0..4 {
+                // println!("Card: {}", index);
+                scope.spawn(|| {
+                    let h1 = Hand::from_names(c1, c2, c3, c4);
+                    let h2 = Hand::from_names(c5, c6, c7, c8);
+                    let mut game = Game::new(h1, h2);
+                    game.flip = flip;
+                    *index.lock().unwrap() += 1;
+                    let index = *index.lock().unwrap() - 1;
+                    for &(pillz, fury) in shift_range(12) {
+                        println!("{} {:<2} {}", index, pillz, fury);
+                        let mut g = game.clone();
+                        g.select(index, pillz, fury);
+
+                        let (wins, draws, losses) = Solver::count(&g);
+
+                        let win_rate = (wins as f32 + draws as f32) / losses as f32;
+                        if win_rate > *best.lock().unwrap() {
+                            *best.lock().unwrap() = win_rate;
+                            let selection = Selection::new(index, pillz, fury);
+                            *best_selection.lock().unwrap() = selection;
+                            println!(
+                                "{:?}\n{} {:.1?}%",
+                                selection,
+                                "Win rate".white().on_green(),
+                                win_rate * 100f32
+                            );
+                        }
+                    }
+                });
+            }
+        });
+
+        toggle_print();
+        unsafe {
+            let solves = SOLVE_COUNT - solve_count;
+            let battles = BATTLE_COUNT - battle_count;
+            let elapsed = now.elapsed();
+            println!(
+                "{} {} /{:.1?}secs ({:.0?}k/s) - Final count",
+                " Solve Count ".white().on_magenta(),
+                solves,
+                elapsed.as_secs_f32(),
+                solves as f32 / elapsed.as_secs_f32() / 1000f32
+            );
+            println!(
+                "{} {} /{:.1?}secs ({:.0?}k/s) - Final count",
+                " Battle Count ".white().on_bright_purple(),
+                battles,
+                elapsed.as_secs_f32(),
+                battles as f32 / elapsed.as_secs_f32() / 1000f32
+            );
+        }
+
+        Arc::try_unwrap(best_selection)
+            .unwrap()
+            .into_inner()
+            .unwrap()
+    }
+
+    fn count(game: &Game) -> (u32, u32, u32) {
+        let mut p_wins = 0u32;
+        let mut draws = 0u32;
+        let mut o_wins = 0u32;
+
+        let pillz = game.get_turn_player().pillz;
+        let hand = game.get_turn_hand();
+        for index in 0..4 {
+            if hand.index(index).played {
+                continue;
+            }
+
+            for &(pillz, fury) in shift_range(pillz) {
+                let mut g = game.clone();
+                let battled = g.select(index, pillz, fury);
+
+                if battled {
+                    let status = g.status();
+
+                    match status {
+                        GameStatus::Player => p_wins += 1,
+                        GameStatus::Draw => draws += 1,
+                        GameStatus::Opponent => o_wins += 1,
+                        GameStatus::Playing => {
+                            let (p, d, o) = Solver::count(&g);
+                            p_wins += p;
+                            draws += d;
+                            o_wins += o;
+                        }
+                    }
+                } else {
+                    let (p, d, o) = Solver::count(&g);
+                    p_wins += p;
+                    draws += d;
+                    o_wins += o;
+                }
+            }
+        }
+
+        (p_wins, draws, o_wins)
     }
 
     pub fn solve_second(game: &Game) -> SelectionResult {
@@ -289,11 +432,37 @@ lazy_static! {
 
         ranges
     };
+    static ref RANGES: Vec<Vec<(u8, bool)>> = {
+        let mut ranges = Vec::with_capacity(20);
+        for n in 0..20u8 {
+            let mut range = Vec::with_capacity(n as usize);
+
+            if n >= 3 {
+                for i in 0..n-3 {
+                    range.push((i, false));
+                    range.push((i, true));
+                }
+
+                for i in n-2..=n {
+                    range.push((i, false));
+                }
+            }
+
+            ranges.push(range);
+        }
+
+        ranges
+    };
 }
 
 #[inline]
 fn shift_range(n: u8) -> Iter<'static, (u8, bool)> {
     SHIFT_RANGES[n as usize].iter()
+}
+
+#[inline]
+fn range(n: u8) -> Iter<'static, (u8, bool)> {
+    RANGES[n as usize].iter()
 }
 
 #[test]

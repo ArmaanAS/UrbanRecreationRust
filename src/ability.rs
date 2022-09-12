@@ -7,6 +7,13 @@ use serde::{de::IntoDeserializer, Deserialize, Deserializer};
 use serde_repr::Deserialize_repr;
 use simd_json::from_reader;
 
+use crate::{
+    battle::BattleData,
+    game::RoundWin,
+    modifiers::{EventTime, Modifier},
+    types::Clan,
+};
+
 pub static mut PRINT: bool = true;
 macro_rules! println {
     ($($rest:tt)*) => {
@@ -17,13 +24,6 @@ macro_rules! println {
         }
     }
 }
-
-use crate::{
-    battle::BattleData,
-    game::RoundWin,
-    modifiers::{EventTime, Modifier},
-    types::Clan,
-};
 
 lazy_static! {
     pub static ref ABILITIES: HashMap<u32, Ability> = {
@@ -45,15 +45,32 @@ pub enum AbilityType {
     GlobalBonus = 5,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct Ability {
     // pub ability: String,
     pub ability_type: AbilityType,
     pub modifiers: Vec<Modifier>,
     pub conditions: Vec<Condition>,
-    pub delayed: Option<bool>,
-    pub won: Option<bool>,
-    pub remove: Option<()>,
+    #[serde(default)]
+    pub delayed: bool,
+    #[serde(default)]
+    pub won: bool,
+    #[serde(default)]
+    pub remove: bool,
+}
+
+impl Clone for Ability {
+    #[inline]
+    fn clone(&self) -> Self {
+        Ability {
+            ability_type: self.ability_type,
+            modifiers: self.modifiers.clone(),
+            conditions: self.conditions.clone(),
+            delayed: self.delayed,
+            won: self.won,
+            remove: self.remove,
+        }
+    }
 }
 
 impl Ability {
@@ -63,19 +80,18 @@ impl Ability {
     pub fn can_apply(&mut self, data: &BattleData) -> bool {
         if (self.ability_type == AbilityType::GlobalAbility
             || self.ability_type == AbilityType::GlobalBonus)
-            && self.won == None
+            && !self.won
         {
             if data.player.borrow().won == RoundWin::LOSE {
-                // data.events.borrow_mut().remove_global(self);
-                self.remove = Some(());
+                self.remove = true;
                 return false;
             } else {
-                self.won = Some(true);
+                self.won = true;
             }
         }
 
-        if self.delayed == Some(true) {
-            self.delayed = Some(false);
+        if self.delayed == true {
+            self.delayed = false;
             return false;
         }
 
@@ -89,11 +105,9 @@ impl Ability {
 
         match self.ability_type {
             AbilityType::Ability | AbilityType::GlobalAbility => {
-                // !data.card.borrow().ability.attr.is_blocked()
                 !data.card.borrow().ability.is_blocked()
             }
             AbilityType::Bonus | AbilityType::GlobalBonus => {
-                // !data.card.borrow().bonus.attr.is_blocked()
                 !data.card.borrow().bonus.is_blocked()
             }
             _ => true,
@@ -138,15 +152,14 @@ pub enum Condition {
     // StopBonus,
     Infiltrate(u8),
     Versus(u8),
-    // Other(String),
     #[serde(other)]
     None,
 }
 
 impl<'de> Deserialize<'de> for Condition {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         if s.ends_with("]") {
