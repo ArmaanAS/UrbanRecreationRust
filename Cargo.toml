@@ -15,6 +15,7 @@ rand = "0.8.5"
 itertools = "0.10.3"
 colored = "2.0.0"
 regex = "1.6.0"
+nohash-hasher = "0.2.0"
 
 [profile.release]
 debug = true

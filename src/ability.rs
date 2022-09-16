@@ -2,6 +2,7 @@ use std::{collections::HashMap, fs::File, path::Path, sync::Mutex};
 
 use colored::Colorize;
 use lazy_static::lazy_static;
+use nohash_hasher::BuildNoHashHasher;
 use regex::Regex;
 use serde::{de::IntoDeserializer, Deserialize, Deserializer};
 use serde_repr::Deserialize_repr;
@@ -26,7 +27,7 @@ macro_rules! println {
 }
 
 lazy_static! {
-    pub static ref ABILITIES: HashMap<u32, Ability> = {
+    pub static ref ABILITIES: HashMap<u32, Ability, BuildNoHashHasher<u32>> = {
         let data_file =
             File::open(Path::new("./assets/compiled.json")).expect("file should open read only");
         from_reader(data_file).expect("Error while reading JSON file")
@@ -107,9 +108,7 @@ impl Ability {
             AbilityType::Ability | AbilityType::GlobalAbility => {
                 !data.card.borrow().ability.is_blocked()
             }
-            AbilityType::Bonus | AbilityType::GlobalBonus => {
-                !data.card.borrow().bonus.is_blocked()
-            }
+            AbilityType::Bonus | AbilityType::GlobalBonus => !data.card.borrow().bonus.is_blocked(),
             _ => true,
         }
     }
@@ -158,8 +157,8 @@ pub enum Condition {
 
 impl<'de> Deserialize<'de> for Condition {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         if s.ends_with("]") {

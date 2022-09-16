@@ -5,7 +5,7 @@ use game::Selection;
 use crate::{
     card::Hand,
     game::{Game, GameStatus, PlayerType},
-    solver::Solver,
+    solver::{SelectionResult, Solver},
 };
 
 mod ability;
@@ -71,22 +71,36 @@ fn main() {
     // game.select(1, 2, false);
 
     if flip == 0 {
-        println!("{:?}", Solver::solve(&game));
+        // let best = Solver::solve(&game);
+
+        // match (best, game.get_turn()) {
+        //     (SelectionResult::Player(_), PlayerType::Opponent)
+        //     | (SelectionResult::Opponent(_), PlayerType::Player) => {
+        //         Solver::middle(&game);
+        //     }
+        //     (_, _) => println!("{:?}", best),
+        // }
+        Solver::middle(&game);
     }
 
     // return;
 
     println!("{} turn", game.get_turn_name());
+    let mut cancelled = false;
     for line in io::stdin().lines() {
         let mut input = line.unwrap();
 
         if input.as_str() == "cancel" {
             game.clear_selection();
             game.print_status();
+            // cancelled = true;
             continue;
         } else if input.starts_with("x ") {
             input = input[2..].to_string();
             game.clear_selection();
+            cancelled = true;
+        } else {
+            cancelled = false;
         }
 
         let selected = Selection::parse(input);
@@ -97,6 +111,10 @@ fn main() {
         let Selection { index, pillz, fury } = selected.unwrap();
 
         // println!("{}, {}, {}", index, pillz, fury);
+        if !game.can_select(index, pillz, fury) {
+            continue;
+        }
+
         let battled = game.select(index, pillz, fury);
         if !battled {
             game.print_status();
@@ -105,8 +123,22 @@ fn main() {
             break;
         }
 
-        if game.get_turn() == PlayerType::Player || game.round != 0 {
-            println!("{:?}", Solver::solve(&game));
+        let turn = game.get_turn();
+
+        if game.round == 0 {
+            if !cancelled && turn == PlayerType::Player {
+                Solver::middle(&game);
+            }
+        } else {
+            let best = Solver::solve(&game);
+
+            match (best, turn) {
+                (SelectionResult::Player(_), PlayerType::Opponent)
+                | (SelectionResult::Opponent(_), PlayerType::Player) => {
+                    Solver::middle(&game);
+                }
+                (_, _) => println!("{:?}", best),
+            }
         }
 
         println!("{} turn", game.get_turn_name());
@@ -141,11 +173,7 @@ mod test_clan_count {
 mod test1 {
     use regex::{Captures, Regex};
 
-    use crate::{
-        ability::{ABILITIES, CLANS_REGEX},
-        card::{Card, CARD_IDS},
-        types::Clan,
-    };
+    use crate::{ability::ABILITIES, card::CARD_IDS, types::Clan};
 
     #[test]
     fn test() {

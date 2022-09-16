@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, mem::swap};
 
 use colored::Colorize;
 
@@ -22,7 +22,7 @@ macro_rules! println {
 
 #[derive(Debug)]
 pub struct Events {
-    pub events: Option<[Vec<Ability>; 10]>,
+    pub events: [Vec<Ability>; 10],
     pub global: Option<[Option<Vec<Ability>>; 10]>,
     global_count: usize,
 }
@@ -30,7 +30,7 @@ pub struct Events {
 impl Clone for Events {
     fn clone(&self) -> Self {
         Events {
-            events: None,
+            events: Default::default(),
             global: Clone::clone(&self.global),
             global_count: self.global_count,
         }
@@ -40,7 +40,7 @@ impl Clone for Events {
 impl Default for Events {
     fn default() -> Self {
         Events {
-            events: None,
+            events: Default::default(),
             global: None,
             global_count: 0,
         }
@@ -48,18 +48,13 @@ impl Default for Events {
 }
 
 impl Events {
-    #[inline]
-    pub fn init(&mut self) {
-        self.events = Some(Default::default());
-    }
-
     pub fn add(&mut self, ability: Ability) {
         if ability.modifiers.len() == 0 {
             println!("{}: {:#?}", "Failed to add ability".red(), ability);
         } else {
-            match ability.ability_type.clone() {
+            match ability.ability_type {
                 AbilityType::Ability | AbilityType::Bonus => {
-                    self.events.as_mut().unwrap()[ability.event_time() as usize].push(ability)
+                    self.events[ability.event_time() as usize].push(ability)
                 }
                 // AbilityType::Global |
                 AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
@@ -94,15 +89,18 @@ impl Events {
 
     pub fn execute(&mut self, event: EventTime, data: &BattleData) {
         let index = event as usize;
-        let events = &mut self.events.as_mut().unwrap()[index];
 
-        let mut new_abilities = Vec::<Ability>::with_capacity(2);
-        for ability in events.iter_mut() {
-            if let Some(new_ability) = ability.apply(data) {
-                new_abilities.push(new_ability);
+        let x = &mut self.events[index];
+        if x.len() != 0 {
+            let mut events = Vec::<Ability>::new();
+            swap(x, &mut events);
+
+            for ability in events.iter_mut() {
+                if let Some(new_ability) = ability.apply(data) {
+                    self.add(new_ability);
+                }
             }
         }
-        // events.clear();
 
         if self.global_count != 0 {
             let mut clear = false;
@@ -126,15 +124,11 @@ impl Events {
                 }
             }
         }
-
-        for new_ability in new_abilities {
-            self.add(new_ability);
-        }
     }
 
     pub fn check_cancels(&mut self, data: &BattleData) -> bool {
         let mut changed = false;
-        for ability in self.events.as_mut().unwrap()[EventTime::PRE4 as usize].iter_mut() {
+        for ability in self.events[EventTime::PRE4 as usize].iter_mut() {
             // let ability_type = ability.ability_type.clone();
             if let Modifier::Cancel(modifier) = &mut ability.modifiers[0] {
                 if modifier.applied == None {
@@ -208,7 +202,7 @@ impl Events {
     #[inline]
     pub fn execute_end(&mut self, data: &BattleData) {
         self.execute(EventTime::END, data);
-        self.events = None;
+        // self.events = None;
     }
 }
 

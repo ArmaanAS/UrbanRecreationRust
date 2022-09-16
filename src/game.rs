@@ -461,9 +461,6 @@ impl Game {
         let total_pillz1 = if fury1 { pillz1 + 3 } else { pillz1 };
         let total_pillz2 = if fury2 { pillz2 + 3 } else { pillz2 };
 
-        self.events1.borrow_mut().init();
-        self.events2.borrow_mut().init();
-
         {
             let mut p1 = self.p1.borrow_mut();
             let mut p2 = self.p2.borrow_mut();
@@ -594,6 +591,18 @@ impl Game {
         unsafe {
             BATTLE_COUNT += 1;
         }
+    }
+
+    pub fn can_select(&self, index: usize, pillz: u8, fury: bool) -> bool {
+        if index > 3 {
+            return false;
+        }
+        let p = self.get_turn_player().pillz;
+        let pillz = if fury { pillz + 3 } else { pillz };
+        if pillz > p || self.get_turn_hand().index(index).played {
+            return false;
+        }
+        true
     }
 
     pub fn select(&mut self, index: usize, pillz: u8, fury: bool) -> bool {
