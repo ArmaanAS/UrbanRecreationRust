@@ -1,11 +1,13 @@
 use std::{
     io::{stdout, Write},
     slice::Iter,
+    sync::{Arc, Mutex},
     time::Instant,
 };
 
 use colored::{Color, Colorize};
 use lazy_static::lazy_static;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     ability, battle,
@@ -46,7 +48,13 @@ impl Solver {
         toggle_print();
         let now = Instant::now();
         if game.s1.is_some() || game.s2.is_some() {
-            Solver::middle_second(game);
+            if game.round == 50 {
+                Solver::middle_second_par(game);
+            } else {
+                Solver::middle_second(game);
+            }
+        } else if game.round == 50 {
+            Solver::middle_first_par(game);
         } else {
             Solver::middle_first(game);
         }
@@ -64,7 +72,7 @@ impl Solver {
         }
     }
 
-    pub fn middle_second(game: &Game) {
+    fn middle_second(game: &Game) {
         let i = if game.s1.is_none() {
             game.s2.unwrap().index
         } else {
@@ -166,7 +174,121 @@ impl Solver {
         println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
     }
 
-    pub fn middle_first(game: &Game) {
+    fn middle_second_par(game: &Game) {
+        let i = if game.s1.is_none() {
+            game.s2.unwrap().index
+        } else {
+            game.s1.unwrap().index
+        };
+
+        let turn = game.get_turn();
+        let pillz1 = game.get_turn_opponent().pillz;
+        let pillz2 = game.get_turn_player().pillz;
+
+        let mut game = game.clone();
+        game.clear_selection();
+
+        let game = Arc::new(Mutex::new(game));
+        let (best_rate, best_selection) = (0..4)
+            .filter(|&index| !game.lock().unwrap().get_turn_hand().index(index).played)
+            .collect::<Vec<usize>>()
+            .into_par_iter()
+            .map(|index| {
+                let game = game.lock().unwrap().clone();
+
+                let mut best_pillz = 0;
+                let mut best_rate = 0f32;
+                let mut best_rate_rounded = 0u32;
+                let mut best_selection = Selection::default();
+
+                for &(pillz, fury) in shift_false_range(pillz2, game.round) {
+                    let mut p_wins = 0u8;
+                    let mut draws = 0u8;
+                    let mut o_wins = 0u8;
+
+                    for &(p, f) in split_range(pillz1) {
+                        if p == 0 {
+                            continue;
+                        }
+                        let mut g = game.clone();
+                        g.select(i, p, f);
+                        g.select(index, pillz, fury);
+
+                        match g.status() {
+                            GameStatus::Player => p_wins += 1,
+                            GameStatus::Draw => draws += 1,
+                            GameStatus::Opponent => o_wins += 1,
+                            GameStatus::Playing => {
+                                let best = Solver::solve_first(&g);
+                                match best {
+                                    SelectionResult::Player(_) => p_wins += 1,
+                                    SelectionResult::Draw(_) => draws += 1,
+                                    SelectionResult::Opponent(_) => o_wins += 1,
+                                }
+                            }
+                        }
+                    }
+                    let (wins, losses) = if turn == PlayerType::Player {
+                        (p_wins, o_wins)
+                    } else {
+                        (o_wins, p_wins)
+                    };
+
+                    let rate = (wins + draws) as f32 / (wins + draws + losses) as f32;
+                    let rate_rounded = (rate * 100f32) as u32 / 10;
+                    if rate_rounded > best_rate_rounded
+                        || (rate_rounded == best_rate_rounded && pillz < best_pillz)
+                    {
+                        best_pillz = pillz;
+                        best_rate = rate;
+                        best_rate_rounded = rate_rounded;
+                        best_selection = Selection::new(index, pillz, fury);
+                    }
+
+                    if losses == 0 {
+                        if draws == 0 {
+                            print!("{} ", pillz.to_string().black().on_green());
+                        } else {
+                            print!("{} ", "d".bright_yellow());
+                        }
+                    } else if wins + draws > losses {
+                        if wins == 0 {
+                            print!("{} ", "d".bright_yellow());
+                        } else {
+                            print!(
+                                "{} ",
+                                format!("{:X}", pillz).color(if fury {
+                                    Color::Red
+                                } else {
+                                    Color::Green
+                                })
+                            )
+                        }
+                    } else if rate <= 0.25 {
+                        print!("{} ", "x".bright_black())
+                    } else if wins + draws <= losses {
+                        print!("{} ", format!("{:X}", pillz).bright_black())
+                    } else {
+                        println!("({}, {}, {})", wins, losses, draws);
+                    }
+                    stdout().flush().unwrap();
+                }
+                // println!();
+                println!("\n({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+
+                (best_rate, best_selection)
+            })
+            .max_by_key(|&(rate, _)| (rate * 1000f32) as u32)
+            .unwrap();
+
+        println!(
+            "{}{}",
+            format!(" {:.1?}% ", best_rate * 100f32).black().on_green(),
+            format!(" {:?} ", best_selection).green()
+        );
+    }
+
+    fn middle_first(game: &Game) {
         let pillz1 = game.get_turn_player().pillz;
         let pillz2 = game.get_turn_opponent().pillz;
 
@@ -264,6 +386,118 @@ impl Solver {
         }
 
         println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+    }
+
+    fn middle_first_par(game: &Game) {
+        let game = Arc::new(Mutex::new(game.clone()));
+        let (best_rate, best_selection) = (0..4)
+            .filter(|&index| !game.lock().unwrap().get_turn_hand().index(index).played)
+            .collect::<Vec<usize>>()
+            .into_par_iter()
+            .map(|index| {
+                let game = game.lock().unwrap().clone();
+                // let hand1 = game.get_turn_hand();
+                let hand2 = game.get_turn_opponent_hand();
+                let pillz1 = game.get_turn_player().pillz;
+                let pillz2 = game.get_turn_opponent().pillz;
+                let turn = game.get_turn();
+
+                let mut best_pillz = 0;
+                let mut best_rate = 0f32;
+                let mut best_rate_rounded = 0u32;
+                let mut best_selection = Selection::default();
+
+                for &(pillz, fury) in shift_false_range(pillz1, game.round) {
+                    let mut p_wins = 0;
+                    let mut draws = 0;
+                    let mut o_wins = 0;
+
+                    for i in 0..4 {
+                        if hand2.index(i).played {
+                            continue;
+                        }
+
+                        for &(p, f) in split_range(pillz2) {
+                            if p == 0 {
+                                continue;
+                            }
+                            let mut g = game.clone();
+                            g.select(index, pillz, fury);
+                            g.select(i, p, f);
+
+                            match g.status() {
+                                GameStatus::Player => p_wins += 1,
+                                GameStatus::Draw => draws += 1,
+                                GameStatus::Opponent => o_wins += 1,
+                                GameStatus::Playing => {
+                                    let best = Solver::solve_first(&g);
+                                    match best {
+                                        SelectionResult::Player(_) => p_wins += 1,
+                                        SelectionResult::Draw(_) => draws += 1,
+                                        SelectionResult::Opponent(_) => o_wins += 1,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    let (wins, losses) = if turn == PlayerType::Player {
+                        (p_wins, o_wins)
+                    } else {
+                        (o_wins, p_wins)
+                    };
+
+                    let rate = (wins + draws) as f32 / (wins + draws + losses) as f32;
+                    let rate_rounded = (rate * 100f32) as u32 / 10;
+                    if rate_rounded > best_rate_rounded
+                        || (rate_rounded == best_rate_rounded && pillz < best_pillz)
+                    {
+                        best_pillz = pillz;
+                        best_rate = rate;
+                        best_rate_rounded = rate_rounded;
+                        best_selection = Selection::new(index, pillz, fury);
+                    }
+
+                    if losses == 0 {
+                        if draws == 0 {
+                            print!("{} ", pillz.to_string().black().on_green());
+                        } else {
+                            print!("{} ", "d".bright_yellow());
+                        }
+                    } else if wins + draws > losses {
+                        if wins == 0 {
+                            print!("{} ", "d".bright_yellow());
+                        } else {
+                            print!(
+                                "{} ",
+                                format!("{:X}", pillz).color(if fury {
+                                    Color::Red
+                                } else {
+                                    Color::Green
+                                })
+                            )
+                        }
+                    } else if rate <= 0.25 {
+                        print!("{} ", "x".bright_black())
+                    } else if wins + draws <= losses {
+                        print!("{} ", format!("{:X}", pillz).bright_black())
+                    } else {
+                        println!("({}, {}, {})", wins, losses, draws);
+                    }
+                    // stdout().flush().unwrap();
+                }
+                // println!();
+                println!("\n({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+
+                (best_rate, best_selection)
+            })
+            .max_by_key(|&(rate, _)| (rate * 1000f32) as u32)
+            .unwrap();
+
+        println!(
+            "{}{}",
+            format!(" {:.1?}% ", best_rate * 100f32).black().on_green(),
+            format!(" {:?} ", best_selection).green()
+        );
     }
 
     // pub fn middle_first(game: &Game) {

@@ -1,6 +1,7 @@
 use std::{env, io};
 
 use game::Selection;
+use rayon::ThreadPoolBuilder;
 
 use crate::{
     card::Hand,
@@ -17,6 +18,10 @@ mod solver;
 mod types;
 
 fn main() {
+    // ThreadPoolBuilder::new()
+    //     .num_threads(4)
+    //     .build_global()
+    //     .unwrap();
     let args: Vec<String> = env::args().collect();
     let h1: Hand;
     let h2: Hand;
@@ -86,10 +91,10 @@ fn main() {
     // return;
 
     println!("{} turn", game.get_turn_name());
-    let mut cancelled = false;
     for line in io::stdin().lines() {
         let mut input = line.unwrap();
 
+        let cancelled: bool;
         if input.as_str() == "cancel" {
             game.clear_selection();
             game.print_status();
@@ -297,5 +302,98 @@ mod test2 {
         let json: Vec<Test> = from_reader(data_file).expect("Error while reading JSON file");
 
         println!("{:?}", json);
+    }
+}
+
+// #[cfg(test)]
+// mod test4 {
+//     use std::{
+//         cell::RefCell,
+//         sync::{Arc, Mutex},
+//         thread,
+//         time::Duration,
+//     };
+
+//     #[derive(Debug, Clone)]
+//     struct Struct {
+//         a: RefCell<u32>,
+//     }
+
+//     impl Struct {
+//         fn new(a: u32) -> Self {
+//             Self { a: RefCell::new(a) }
+//         }
+//     }
+
+//     #[test]
+//     fn test() {
+//         let a = Arc::new(Mutex::new(Struct::new(0)));
+//         println!("{:?}", a);
+
+//         let mut handlers = Vec::new();
+//         for i in 0..4 {
+//             let handler = thread::scope(|s| {
+//                 s.spawn(|| {
+//                     let num = i.clone();
+//                     thread::sleep(Duration::from_millis(500));
+//                     let b = a.clone().lock().unwrap().clone();
+//                     *b.a.borrow_mut() += 1;
+//                     println!("h1 {:?}", b);
+//                     return num;
+//                 });
+//             });
+//             handlers.push(handler);
+//         }
+//         let mut best = 0;
+//         for handler in handlers {
+//             let result = handler.join().unwrap();
+//             if result > best {
+//                 best = result;
+//             }
+//         }
+//         println!("{}", best);
+//     }
+// }
+
+#[cfg(test)]
+mod test5 {
+    use std::{
+        cell::RefCell,
+        sync::{Arc, Mutex},
+        thread,
+        time::Duration,
+    };
+
+    use rayon::prelude::*;
+
+    #[derive(Debug, Clone)]
+    struct Test {
+        a: RefCell<i32>,
+    }
+
+    impl Test {
+        fn new(a: i32) -> Self {
+            Self { a: RefCell::new(a) }
+        }
+    }
+
+    #[test]
+    fn test() {
+        let a = 5;
+        // let mut counter = 0;
+
+        let s = Arc::new(Mutex::new(Test::new(0)));
+        (0..4).into_par_iter().for_each(|i| {
+            thread::sleep(Duration::from_millis(i * 300));
+            let x = s.lock().unwrap().clone();
+            *x.a.borrow_mut() += a;
+            println!("{:?}", x);
+
+            // for _ in 0..1000000 {
+            //     counter += 1;
+            // }
+        });
+
+        // println!("{}", counter);
     }
 }
