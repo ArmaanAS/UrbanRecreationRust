@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 
 use colored::{ColoredString, Colorize};
 
@@ -186,17 +186,18 @@ pub enum PlayerType {
 #[derive(Debug, Clone)]
 pub struct Game {
     pub round: u8,
-    pub p1: RefCell<Player>,
-    pub p2: RefCell<Player>,
+    pub p1: Player,
+    pub p2: Player,
     pub h1: Hand,
     pub h2: Hand,
     pub s1: Option<Selection>,
     pub s2: Option<Selection>,
-    pub events1: RefCell<Events>,
-    pub events2: RefCell<Events>,
+    pub events1: Events,
+    pub events2: Events,
     pub flip: u8,
 }
 
+#[allow(dead_code)]
 impl Game {
     pub fn new(h1: Hand, h2: Hand) -> Self {
         // let h1 = Hand::from_ids(1182, 271, 1300, 1906);
@@ -219,14 +220,14 @@ impl Game {
             round: 0,
             // p1: RefCell::new(Player::new("Player", PlayerType::Player)),
             // p2: RefCell::new(Player::new("Opponent", PlayerType::Opponent)),
-            p1: RefCell::new(Player::new(PlayerType::Player)),
-            p2: RefCell::new(Player::new(PlayerType::Opponent)),
+            p1: Player::new(PlayerType::Player),
+            p2: Player::new(PlayerType::Opponent),
             h1,
             h2,
             s1: None,
             s2: None,
-            events1: RefCell::new(events1),
-            events2: RefCell::new(events2),
+            events1: events1,
+            events2: events2,
             flip: 0,
         }
     }
@@ -237,13 +238,13 @@ impl Game {
     }
     pub fn has_global(&self) -> bool {
         for card in self.h1.cards.iter() {
-            match card.borrow().get_ability().ability_type {
+            match card.get_ability().ability_type {
                 AbilityType::Global | AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
                     return true;
                 }
                 _ => (),
             }
-            match card.borrow().get_bonus().ability_type {
+            match card.get_bonus().ability_type {
                 AbilityType::Global | AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
                     return true;
                 }
@@ -257,8 +258,8 @@ impl Game {
             return GameStatus::Playing;
         }
 
-        let l1 = self.p1.borrow().life;
-        let l2 = self.p2.borrow().life;
+        let l1 = self.p1.life;
+        let l2 = self.p2.life;
 
         if l1 <= 0 && l2 <= 0 {
             GameStatus::Draw
@@ -288,7 +289,7 @@ impl Game {
 
         match self.status() {
             GameStatus::Playing => {
-                self.p2.borrow().print();
+                self.p2.print();
                 self.h2.print(
                     self.s2
                         .unwrap_or(Selection {
@@ -298,7 +299,7 @@ impl Game {
                         })
                         .index,
                 );
-                self.p1.borrow().print();
+                self.p1.print();
                 self.h1.print(
                     self.s1
                         .unwrap_or(Selection {
@@ -345,18 +346,18 @@ impl Game {
             " Opponent ".white().on_red()
         }
     }
-    pub fn get_turn_player(&self) -> Ref<Player> {
+    pub fn get_turn_player(&self) -> &Player {
         if self.get_turn() == PlayerType::Player {
-            self.p1.borrow()
+            &self.p1
         } else {
-            self.p2.borrow()
+            &self.p2
         }
     }
-    pub fn get_turn_opponent(&self) -> Ref<Player> {
+    pub fn get_turn_opponent(&self) -> &Player {
         if self.get_turn() == PlayerType::Player {
-            self.p2.borrow()
+            &self.p2
         } else {
-            self.p1.borrow()
+            &self.p1
         }
     }
     pub fn get_turn_hand(&self) -> &Hand {
@@ -392,10 +393,10 @@ impl Game {
             (Some(s1), Some(s2)) => {
                 // if let Some(s1) = self.s1 && let Some(s2) = self.s2 {
                 self.h2.print(s2.index);
-                self.p2.borrow().print();
+                self.p2.print();
 
                 print!("\n{}", " ".repeat(32));
-                if self.p2.borrow().won == RoundWin::WIN {
+                if self.p2.won == RoundWin::WIN {
                     print!("{}  ", " Winner! ".black().on_magenta());
                 } else {
                     print!("{}", " ".repeat(11));
@@ -419,7 +420,7 @@ impl Game {
                 println!("{}", " VERSUS ".black().on_bright_green());
 
                 print!("\n{}", " ".repeat(32));
-                if self.p1.borrow().won == RoundWin::WIN {
+                if self.p1.won == RoundWin::WIN {
                     print!("{}  ", " Winner! ".black().on_magenta());
                 } else {
                     print!("{}", " ".repeat(11));
@@ -439,7 +440,7 @@ impl Game {
                 }
                 println!("\n");
 
-                self.p1.borrow().print();
+                self.p1.print();
                 self.h1.print(s1.index);
             }
             _ => unreachable!(),
@@ -450,9 +451,7 @@ impl Game {
         let s1 = &mut self.s1.unwrap();
         let s2 = &mut self.s2.unwrap();
 
-        // if let Some(s1) = self.s1 && let Some(s2) = self.s2 {
-        let card1 = &self.h1.cards[s1.index];
-        let card2 = &self.h2.cards[s2.index];
+        let first_turn = self.get_first_turn();
         let pillz1 = s1.pillz;
         let pillz2 = s2.pillz;
         let fury1 = s1.fury;
@@ -461,57 +460,75 @@ impl Game {
         let total_pillz1 = if fury1 { pillz1 + 3 } else { pillz1 };
         let total_pillz2 = if fury2 { pillz2 + 3 } else { pillz2 };
 
+        self.p1.won_previous = self.p1.won;
+        self.p2.won_previous = self.p2.won;
+        self.p1.life_previous = self.p1.life;
+        self.p2.life_previous = self.p2.life;
+        self.p1.pillz_previous = self.p1.pillz;
+        self.p2.pillz_previous = self.p2.pillz;
+
         {
-            let mut p1 = self.p1.borrow_mut();
-            let mut p2 = self.p2.borrow_mut();
-            p1.won_previous = p1.won;
-            p2.won_previous = p2.won;
-            p1.life_previous = p1.life;
-            p2.life_previous = p2.life;
-            p1.pillz_previous = p1.pillz;
-            p2.pillz_previous = p2.pillz;
+            let card1 = self.h1.index(s1.index);
+            let card2 = self.h2.index(s2.index);
+
+            self.events1.add(card1.get_ability());
+            self.events2.add(card2.get_ability());
+            self.events1.add(card1.get_bonus());
+            self.events2.add(card2.get_bonus());
         }
 
-        let first_turn = self.get_first_turn();
+        let Game {
+            events1,
+            events2,
+            h1,
+            h2,
+            p1,
+            p2,
+            ..
+        } = self;
+
+        let events1 = RefCell::new(events1);
+        let events2 = RefCell::new(events2);
+
+        let p1 = RefCell::new(p1);
+        let p2 = RefCell::new(p2);
+
+        let h1 = h1.to_handcell();
+        let h2 = h2.to_handcell();
+
+        let card1 = &h1.cards[s1.index];
+        let card2 = &h2.cards[s2.index];
+
         let battle_data1 = BattleData {
             round: self.round,
             first: first_turn == PlayerType::Player,
-            hand: &self.h1,
-            opp_hand: &self.h2,
-            player: &self.p1,
+            hand: &h1,
+            opp_hand: &h2,
+            player: &p1,
             card: card1,
             player_pillz_used: total_pillz1,
-            opp: &self.p2,
+            opp: &p2,
             opp_card: card2,
             opp_pillz_used: total_pillz2,
-            events: &self.events1,
+            events: &events1,
         };
         let battle_data2 = BattleData {
             round: self.round,
             first: first_turn == PlayerType::Opponent,
-            hand: &self.h2,
-            opp_hand: &self.h1,
-            player: &self.p2,
+            hand: &h2,
+            opp_hand: &h1,
+            player: &p2,
             card: &card2,
             player_pillz_used: total_pillz2,
-            opp: &self.p1,
+            opp: &p1,
             opp_card: &card1,
             opp_pillz_used: total_pillz1,
-            events: &self.events2,
+            events: &events2,
         };
 
         {
-            let mut events1 = self.events1.borrow_mut();
-            let mut events2 = self.events2.borrow_mut();
-            {
-                let card1 = card1.borrow();
-                let card2 = card2.borrow();
-
-                events1.add(card1.get_ability());
-                events2.add(card2.get_ability());
-                events1.add(card1.get_bonus());
-                events2.add(card2.get_bonus());
-            }
+            let mut events1 = events1.borrow_mut();
+            let mut events2 = events2.borrow_mut();
 
             events1.execute_start(&battle_data1);
             events2.execute_start(&battle_data2);
@@ -548,14 +565,14 @@ impl Game {
         card1.borrow_mut().attack.value = attack1;
         card2.borrow_mut().attack.value = attack2;
 
-        self.events1.borrow_mut().execute_post(&battle_data1);
-        self.events2.borrow_mut().execute_post(&battle_data2);
+        events1.borrow_mut().execute_post(&battle_data1);
+        events2.borrow_mut().execute_post(&battle_data2);
 
         let attack1 = card1.borrow().attack.value;
         let attack2 = card2.borrow().attack.value;
         {
-            let mut p1 = self.p1.borrow_mut();
-            let mut p2 = self.p2.borrow_mut();
+            let mut p1 = p1.borrow_mut();
+            let mut p2 = p2.borrow_mut();
             let mut card1 = card1.borrow_mut();
             let mut card2 = card2.borrow_mut();
             if attack1 > attack2
@@ -578,8 +595,8 @@ impl Game {
             p2.pillz -= total_pillz2;
         }
 
-        self.events1.borrow_mut().execute_end(&battle_data1);
-        self.events2.borrow_mut().execute_end(&battle_data2);
+        events1.borrow_mut().execute_end(&battle_data1);
+        events2.borrow_mut().execute_end(&battle_data2);
 
         card1.borrow_mut().played = true;
         card2.borrow_mut().played = true;

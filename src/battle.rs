@@ -4,7 +4,7 @@ use colored::Colorize;
 
 use crate::{
     ability::{Ability, AbilityType},
-    card::{Card, Hand},
+    card::{Card, HandCell},
     game::Player,
     modifiers::{EventTime, Modifier},
 };
@@ -211,13 +211,13 @@ impl Events {
 pub struct BattleData<'a> {
     pub round: u8,
     pub first: bool,
-    pub player: &'a RefCell<Player>,
-    pub hand: &'a Hand,
-    pub card: &'a RefCell<Card>,
+    pub player: &'a RefCell<&'a mut Player>,
+    pub hand: &'a HandCell<'a>,
+    pub card: &'a RefCell<&'a mut Card>,
     pub player_pillz_used: u8,
-    pub opp: &'a RefCell<Player>,
-    pub opp_hand: &'a Hand,
-    pub opp_card: &'a RefCell<Card>,
+    pub opp: &'a RefCell<&'a mut Player>,
+    pub opp_hand: &'a HandCell<'a>,
+    pub opp_card: &'a RefCell<&'a mut Card>,
     pub opp_pillz_used: u8,
-    pub events: &'a RefCell<Events>,
+    pub events: &'a RefCell<&'a mut Events>,
 }

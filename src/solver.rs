@@ -1,7 +1,6 @@
 use std::{
     io::{stdout, Write},
     slice::Iter,
-    sync::{Arc, Mutex},
     time::Instant,
 };
 
@@ -48,12 +47,12 @@ impl Solver {
         toggle_print();
         let now = Instant::now();
         if game.s1.is_some() || game.s2.is_some() {
-            if game.round == 50 {
+            if game.round == 0 {
                 Solver::middle_second_par(game);
             } else {
                 Solver::middle_second(game);
             }
-        } else if game.round == 50 {
+        } else if game.round == 0 {
             Solver::middle_first_par(game);
         } else {
             Solver::middle_first(game);
@@ -188,13 +187,12 @@ impl Solver {
         let mut game = game.clone();
         game.clear_selection();
 
-        let game = Arc::new(Mutex::new(game));
         let (best_rate, best_selection) = (0..4)
-            .filter(|&index| !game.lock().unwrap().get_turn_hand().index(index).played)
-            .collect::<Vec<usize>>()
+            // .filter(|&index| !game.get_turn_hand().index(index).played)
+            // .collect::<Vec<usize>>()
             .into_par_iter()
             .map(|index| {
-                let game = game.lock().unwrap().clone();
+                let game = game.clone();
 
                 let mut best_pillz = 0;
                 let mut best_rate = 0f32;
@@ -389,13 +387,12 @@ impl Solver {
     }
 
     fn middle_first_par(game: &Game) {
-        let game = Arc::new(Mutex::new(game.clone()));
         let (best_rate, best_selection) = (0..4)
-            .filter(|&index| !game.lock().unwrap().get_turn_hand().index(index).played)
-            .collect::<Vec<usize>>()
+            // .filter(|&index| !game.get_turn_hand().index(index).played)
+            // .collect::<Vec<usize>>()
             .into_par_iter()
             .map(|index| {
-                let game = game.lock().unwrap().clone();
+                let game = game.clone();
                 // let hand1 = game.get_turn_hand();
                 let hand2 = game.get_turn_opponent_hand();
                 let pillz1 = game.get_turn_player().pillz;
@@ -902,10 +899,10 @@ lazy_static! {
     };
 }
 
-#[inline]
-fn shift_range(n: u8) -> Iter<'static, (u8, bool)> {
-    SHIFT_RANGES[n as usize].iter()
-}
+// #[inline]
+// fn shift_range(n: u8) -> Iter<'static, (u8, bool)> {
+//     SHIFT_RANGES[n as usize].iter()
+// }
 
 #[inline]
 fn split_shift_range(n: u8) -> Iter<'static, (u8, bool)> {
@@ -922,14 +919,14 @@ fn split_range(n: u8) -> Iter<'static, (u8, bool)> {
     SPLIT_RANGES[n as usize].iter()
 }
 
-#[inline]
-fn false_range(n: u8, round: u8) -> Iter<'static, (u8, bool)> {
-    if round == 0 {
-        FALSE_RANGES[n as usize].iter()
-    } else {
-        SPLIT_RANGES[n as usize].iter()
-    }
-}
+// #[inline]
+// fn false_range(n: u8, round: u8) -> Iter<'static, (u8, bool)> {
+//     if round == 0 {
+//         FALSE_RANGES[n as usize].iter()
+//     } else {
+//         SPLIT_RANGES[n as usize].iter()
+//     }
+// }
 
 #[inline]
 fn shift_false_range(n: u8, round: u8) -> Iter<'static, (u8, bool)> {

@@ -18,10 +18,10 @@ mod solver;
 mod types;
 
 fn main() {
-    // ThreadPoolBuilder::new()
-    //     .num_threads(4)
-    //     .build_global()
-    //     .unwrap();
+    ThreadPoolBuilder::new()
+        .num_threads(4)
+        .build_global()
+        .unwrap();
     let args: Vec<String> = env::args().collect();
     let h1: Hand;
     let h2: Hand;
@@ -151,28 +151,28 @@ fn main() {
     game.print_status();
 }
 
-#[cfg(test)]
-mod test_clan_count {
-    use crate::{card::Hand, types::Clan};
+// #[cfg(test)]
+// mod test_clan_count {
+//     use crate::{card::Hand, types::Clan};
 
-    #[test]
-    fn test() {
-        // let game = Game::random();
+//     #[test]
+//     fn test() {
+//         // let game = Game::random();
 
-        // game.print_status();
+//         // game.print_status();
 
-        // println!("{:?}", game.h1.clan_count);
-        // println!("{:?}", game.h2.clan_count);
-        let h1 = Hand::random_hand_clan(Clan::AllStars);
-        let h2 = h1.clone();
+//         // println!("{:?}", game.h1.clan_count);
+//         // println!("{:?}", game.h2.clan_count);
+//         let h1 = Hand::random_hand_clan(Clan::AllStars);
+//         let h2 = h1.clone();
 
-        let mut card1 = h1.cards[0].borrow_mut();
-        let card2 = h2.cards[0].borrow_mut();
-        card1.played = true;
+//         // let mut card1 = h1.cards[0].borrow_mut();
+//         // let card2 = h2.cards[0].borrow_mut();
+//         // card1.played = true;
 
-        println!("{:#?}\n{:#?}", card1, card2);
-    }
-}
+//         // println!("{:#?}\n{:#?}", card1, card2);
+//     }
+// }
 
 #[cfg(test)]
 mod test1 {

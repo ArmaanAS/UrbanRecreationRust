@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 
 use std::{
-    cell::{Ref, RefCell},
+    cell::RefCell,
     collections::{HashMap, HashSet},
     convert::TryInto,
     fs::File,
+    ops::{Index, IndexMut},
     path::Path,
 };
 
@@ -512,45 +513,45 @@ impl Card {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Hand {
-    pub cards: [RefCell<Card>; 4],
+    pub cards: [Card; 4],
     pub clan_count: [u8; 4],
     pub oculus_clan: Clan,
 }
 
-impl Clone for Hand {
-    #[inline]
-    fn clone(&self) -> Self {
-        Hand {
-            cards: [
-                self.cards[0].clone(),
-                self.cards[1].clone(),
-                self.cards[2].clone(),
-                self.cards[3].clone(),
-            ],
-            clan_count: self.clan_count,
-            oculus_clan: self.oculus_clan,
-        }
+// impl Clone for Hand {
+//     #[inline]
+//     fn clone(&self) -> Self {
+//         Hand {
+//             cards: [
+//                 self.cards[0].clone(),
+//                 self.cards[1].clone(),
+//                 self.cards[2].clone(),
+//                 self.cards[3].clone(),
+//             ],
+//             clan_count: self.clan_count,
+//             oculus_clan: self.oculus_clan,
+//         }
+//     }
+// }
+
+impl Index<usize> for Hand {
+    type Output = Card;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.cards[index]
+    }
+}
+impl IndexMut<usize> for Hand {
+    fn index_mut(&mut self, index: usize) -> &mut Card {
+        &mut self.cards[index]
     }
 }
 
-// impl Index<usize> for Hand {
-//     type Output = Card;
-//     fn index(&self, index: usize) -> &Self::Output {
-//         self.cards[index].borrow().deref()
-//     }
-// }
-// impl IndexMut<usize> for Hand {
-//     fn index_mut(&mut self, index: usize) -> &mut Card {
-//         self.cards[index].borrow_mut().deref_mut()
-//     }
-// }
-
 impl Hand {
     #[inline]
-    pub fn index(&self, index: usize) -> Ref<Card> {
-        self.cards[index].borrow()
+    pub fn index(&self, index: usize) -> &Card {
+        &self.cards[index]
     }
     // pub fn index_mut(&self, index: usize) -> RefMut<Card> {
     //     self.cards[index].borrow_mut()
@@ -566,14 +567,14 @@ impl Hand {
     // }
     pub fn print(&self, selected: usize) {
         for (i, card) in self.cards.iter().enumerate() {
-            card.borrow().print(i * 28, i > 0, i == selected);
+            card.print(i * 28, i > 0, i == selected);
         }
     }
     #[inline]
     pub fn card_clan_count(&self, index: usize) -> u8 {
         self.clan_count[index]
     }
-    pub fn clan_counts(cards: &[RefCell<Card>; 4]) -> ([u8; 4], Clan) {
+    pub fn clan_counts(cards: &mut [Card; 4]) -> ([u8; 4], Clan) {
         let mut counts = [0u8; 4];
         let mut clans = [Clan::None; 4];
         let mut clan_count = HashMap::<Clan, usize>::with_capacity(4);
@@ -582,26 +583,26 @@ impl Hand {
         let mut oculus_index = 0;
         let mut ids = HashSet::<u32>::with_capacity(4);
         for (i, card) in cards.iter().enumerate() {
-            if card.borrow().clan() == Clan::Oculus {
+            if card.clan() == Clan::Oculus {
                 oculus_count += 1;
                 oculus_index = i;
             }
-            if !ids.contains(&card.borrow().id) {
-                clans[i] = card.borrow().clan();
-                if clan_count.contains_key(&card.borrow().clan()) {
-                    *clan_count.get_mut(&card.borrow().clan()).unwrap() += 1;
+            if !ids.contains(&card.id) {
+                clans[i] = card.clan();
+                if clan_count.contains_key(&card.clan()) {
+                    *clan_count.get_mut(&card.clan()).unwrap() += 1;
                 } else {
-                    clan_count.insert(card.borrow().clan(), 1);
+                    clan_count.insert(card.clan(), 1);
                 }
-                ids.insert(card.borrow().id);
+                ids.insert(card.id);
             }
         }
         if oculus_count == 1 {
             if clan_count.len() == 2 {
                 if oculus_index == 0 {
-                    clans[oculus_index] = cards[1].borrow().clan();
+                    clans[oculus_index] = cards[1].clan();
                 } else {
-                    clans[oculus_index] = cards[0].borrow().clan();
+                    clans[oculus_index] = cards[0].clan();
                 }
             } else if clan_count.len() == 3 {
                 let mut solo_clan = Clan::None;
@@ -630,14 +631,14 @@ impl Hand {
             }
             if count == 1 {
                 // cards[i].borrow_mut().bonus.string = None;
-                cards[i].borrow_mut().bonus_id = 0;
+                cards[i].bonus_id = 0;
             }
             counts[i] = count;
         }
 
         (counts, clans[oculus_index])
     }
-    pub fn get_leader(&self) -> Option<Ref<Card>> {
+    pub fn get_leader(&self) -> Option<&Card> {
         if self.index(0).clan() == Clan::Leader {
             if self.index(1).clan() == Clan::Leader
                 || self.index(2).clan() == Clan::Leader
@@ -666,14 +667,14 @@ impl Hand {
         None
     }
     pub fn random_hand_clan(clan: Clan) -> Self {
-        let cards = CARD_CLANS[&clan]
+        let mut cards = CARD_CLANS[&clan]
             .choose_multiple(&mut thread_rng(), 4)
             .enumerate()
-            .map(|(index, data)| RefCell::new(data.to_card(index)))
-            .collect::<Vec<RefCell<Card>>>()
+            .map(|(index, data)| data.to_card(index))
+            .collect::<Vec<Card>>()
             .try_into()
             .unwrap();
-        let (clan_count, oculus_clan) = Hand::clan_counts(&cards);
+        let (clan_count, oculus_clan) = Hand::clan_counts(&mut cards);
         Hand {
             cards,
             clan_count,
@@ -681,13 +682,13 @@ impl Hand {
         }
     }
     pub fn from_ids(i1: u32, i2: u32, i3: u32, i4: u32) -> Self {
-        let cards = [
-            RefCell::new(BaseCard::get_id(i1).to_card(0)),
-            RefCell::new(BaseCard::get_id(i2).to_card(1)),
-            RefCell::new(BaseCard::get_id(i3).to_card(2)),
-            RefCell::new(BaseCard::get_id(i4).to_card(3)),
+        let mut cards = [
+            BaseCard::get_id(i1).to_card(0),
+            BaseCard::get_id(i2).to_card(1),
+            BaseCard::get_id(i3).to_card(2),
+            BaseCard::get_id(i4).to_card(3),
         ];
-        let (clan_count, oculus_clan) = Hand::clan_counts(&cards);
+        let (clan_count, oculus_clan) = Hand::clan_counts(&mut cards);
         Hand {
             cards,
             clan_count,
@@ -695,17 +696,57 @@ impl Hand {
         }
     }
     pub fn from_names(c1: &str, c2: &str, c3: &str, c4: &str) -> Self {
-        let cards = [
-            RefCell::new(BaseCard::get_name(c1).to_card(0)),
-            RefCell::new(BaseCard::get_name(c2).to_card(1)),
-            RefCell::new(BaseCard::get_name(c3).to_card(2)),
-            RefCell::new(BaseCard::get_name(c4).to_card(3)),
+        let mut cards = [
+            BaseCard::get_name(c1).to_card(0),
+            BaseCard::get_name(c2).to_card(1),
+            BaseCard::get_name(c3).to_card(2),
+            BaseCard::get_name(c4).to_card(3),
         ];
-        let (clan_count, oculus_clan) = Hand::clan_counts(&cards);
+        let (clan_count, oculus_clan) = Hand::clan_counts(&mut cards);
         Hand {
             cards,
             clan_count,
             oculus_clan,
         }
+    }
+    pub fn to_handcell(&mut self) -> HandCell {
+        let [a, b, c, d] = &mut self.cards;
+        HandCell {
+            cards: [
+                RefCell::new(a),
+                RefCell::new(b),
+                RefCell::new(c),
+                RefCell::new(d),
+            ],
+            clan_count: self.clan_count,
+            oculus_clan: self.oculus_clan,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HandCell<'a> {
+    pub cards: [RefCell<&'a mut Card>; 4],
+    pub clan_count: [u8; 4],
+    pub oculus_clan: Clan,
+}
+
+impl HandCell<'_> {
+    #[inline]
+    pub fn to_hand(self) -> Hand {
+        Hand {
+            cards: [
+                self.cards[0].borrow_mut().to_owned(),
+                self.cards[1].borrow_mut().to_owned(),
+                self.cards[2].borrow_mut().to_owned(),
+                self.cards[3].borrow_mut().to_owned(),
+            ],
+            clan_count: self.clan_count,
+            oculus_clan: self.oculus_clan,
+        }
+    }
+    #[inline]
+    pub fn card_clan_count(&self, index: usize) -> u8 {
+        self.clan_count[index]
     }
 }
