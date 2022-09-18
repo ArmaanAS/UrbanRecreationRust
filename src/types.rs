@@ -44,6 +44,7 @@ pub enum Clan {
 }
 
 impl From<u8> for Clan {
+    #[inline]
     fn from(clan: u8) -> Self {
         match clan {
             38 => Clan::AllStars,
@@ -85,6 +86,7 @@ impl From<u8> for Clan {
 }
 
 impl Clan {
+    #[inline]
     fn color(&self) -> Color {
         match self {
             Clan::AllStars | Clan::GhosTown => Color::BrightBlue,
@@ -108,9 +110,11 @@ impl Clan {
             Clan::None => unreachable!(),
         }
     }
+    #[inline]
     pub fn name(&self) -> ColoredString {
         format!("{:?}", self).color(self.color())
     }
+    #[inline]
     pub fn short_name(&self) -> String {
         format!(
             "[{}]",
@@ -172,6 +176,7 @@ pub enum Rarity {
 }
 
 impl Rarity {
+    #[inline]
     pub fn from(s: &String) -> Self {
         match s.as_str() {
             "c" => Rarity::COMMON,
@@ -183,6 +188,7 @@ impl Rarity {
             _ => Rarity::COMMON,
         }
     }
+    #[inline]
     pub fn format_name(&self, name: &String) -> ColoredString {
         match self {
             Rarity::COMMON => format!(" {} ", name).bright_white().on_red(),

@@ -502,9 +502,11 @@ impl Card {
         );
     }
 
+    #[inline]
     pub fn get_ability(&self) -> Ability {
         ABILITIES[&self.ability_id].clone()
     }
+    #[inline]
     pub fn get_bonus(&self) -> Ability {
         ABILITIES[&self.bonus_id].clone()
     }
@@ -522,10 +524,10 @@ impl Clone for Hand {
     fn clone(&self) -> Self {
         Hand {
             cards: [
-                Clone::clone(&self.cards[0]),
-                Clone::clone(&self.cards[1]),
-                Clone::clone(&self.cards[2]),
-                Clone::clone(&self.cards[3]),
+                self.cards[0].clone(),
+                self.cards[1].clone(),
+                self.cards[2].clone(),
+                self.cards[3].clone(),
             ],
             clan_count: self.clan_count,
             oculus_clan: self.oculus_clan,
@@ -546,6 +548,7 @@ impl Clone for Hand {
 // }
 
 impl Hand {
+    #[inline]
     pub fn index(&self, index: usize) -> Ref<Card> {
         self.cards[index].borrow()
     }
@@ -566,6 +569,7 @@ impl Hand {
             card.borrow().print(i * 28, i > 0, i == selected);
         }
     }
+    #[inline]
     pub fn card_clan_count(&self, index: usize) -> u8 {
         self.clan_count[index]
     }

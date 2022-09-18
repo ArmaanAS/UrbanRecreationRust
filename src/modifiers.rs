@@ -497,6 +497,7 @@ pub enum Modifier {
 }
 
 impl Modifier {
+    #[inline]
     pub fn event_time(&self) -> EventTime {
         match self {
             Modifier::Basic(inner) => inner.event_time,
@@ -510,6 +511,7 @@ impl Modifier {
 }
 
 impl Modifier {
+    #[inline]
     pub fn apply(&mut self, data: &BattleData) -> Option<Ability> {
         match self {
             Modifier::Basic(inner) => inner.apply(data),

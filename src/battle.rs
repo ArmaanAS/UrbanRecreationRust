@@ -28,6 +28,7 @@ pub struct Events {
 }
 
 impl Clone for Events {
+    #[inline]
     fn clone(&self) -> Self {
         Events {
             events: Default::default(),
@@ -38,6 +39,7 @@ impl Clone for Events {
 }
 
 impl Default for Events {
+    #[inline]
     fn default() -> Self {
         Events {
             events: Default::default(),

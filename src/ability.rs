@@ -75,6 +75,7 @@ impl Clone for Ability {
 }
 
 impl Ability {
+    #[inline]
     pub fn event_time(&self) -> EventTime {
         self.modifiers[0].event_time()
     }
@@ -91,7 +92,7 @@ impl Ability {
             }
         }
 
-        if self.delayed == true {
+        if self.delayed {
             self.delayed = false;
             return false;
         }
@@ -183,28 +184,29 @@ impl<'de> Deserialize<'de> for Condition {
 }
 
 impl Condition {
+    #[inline]
     pub fn is_met(&self, data: &BattleData) -> bool {
-        let player = data.player.borrow();
-        let card = data.card.borrow();
-        let opp_card = data.opp_card.borrow();
-        let hand = data.hand;
-        let opp_hand = data.opp_hand;
         match self {
-            Condition::Defeat => player.won == RoundWin::LOSE,
+            Condition::Defeat => data.player.borrow().won == RoundWin::LOSE,
             // Condition::Night => round.day == false,
             // Condition::Day => round.day == true,
             Condition::Night | Condition::Day => true,
             Condition::Courage => data.first,
-            Condition::Revenge => player.won_previous == RoundWin::LOSE,
-            Condition::Confidence => player.won_previous == RoundWin::WIN,
+            Condition::Revenge => data.player.borrow().won_previous == RoundWin::LOSE,
+            Condition::Confidence => data.player.borrow().won_previous == RoundWin::WIN,
             Condition::Reprisal => !data.first,
-            Condition::Killshot => card.attack.value >= opp_card.attack.value * 2,
-            Condition::Backlash => player.won == RoundWin::WIN,
-            Condition::Reanimate => player.won == RoundWin::LOSE && player.life == 0,
-            Condition::Stop => card.ability.cancelled != 0,
-            Condition::Symmetry => card.index == opp_card.index,
-            Condition::Asymmetry => card.index != opp_card.index,
+            Condition::Killshot => {
+                data.card.borrow().attack.value >= data.opp_card.borrow().attack.value * 2
+            }
+            Condition::Backlash => data.player.borrow().won == RoundWin::WIN,
+            Condition::Reanimate => {
+                data.player.borrow().won == RoundWin::LOSE && data.player.borrow().life == 0
+            }
+            Condition::Stop => data.card.borrow().ability.cancelled != 0,
+            Condition::Symmetry => data.card.borrow().index == data.opp_card.borrow().index,
+            Condition::Asymmetry => data.card.borrow().index != data.opp_card.borrow().index,
             Condition::Infiltrate(key) => {
+                let hand = data.hand;
                 println!("{}", hand.oculus_clan);
                 if hand.oculus_clan == Clan::None {
                     false
@@ -214,6 +216,7 @@ impl Condition {
                 }
             }
             Condition::Versus(key) => {
+                let opp_hand = data.opp_hand;
                 for card in opp_hand.cards.iter() {
                     let clans = &CONDITION_CLANS.lock().unwrap()[key];
                     if clans.contains(&card.borrow().clan()) {
