@@ -319,7 +319,7 @@ impl CopyModifier {
             Copy::Power => card.power.value = opp_card.power.base,
             Copy::Damage => card.damage.value = opp_card.damage.base,
             Copy::Ability => {
-                card.bonus = opp_card.ability.clone();
+                card.bonus = opp_card.ability;
                 card.bonus_id = opp_card.ability_id;
 
                 let mut bonus = card.get_bonus();
@@ -333,7 +333,7 @@ impl CopyModifier {
                 return Some(bonus);
             }
             Copy::Bonus => {
-                card.ability = opp_card.bonus.clone();
+                card.ability = opp_card.bonus;
                 card.ability_id = opp_card.bonus_id;
 
                 let mut ability = card.get_ability();
@@ -353,7 +353,7 @@ impl CopyModifier {
                         if i != card.index {
                             let clan_card = clan_card.borrow();
                             if clan_card.clan() == clan {
-                                card.bonus = clan_card.bonus.clone();
+                                card.bonus = clan_card.bonus;
                                 card.bonus_id = clan_card.bonus_id;
 
                                 return Some(card.get_bonus());
@@ -508,9 +508,7 @@ impl Modifier {
             Modifier::Recover(inner) => inner.event_time,
         }
     }
-}
 
-impl Modifier {
     #[inline]
     pub fn apply(&mut self, data: &BattleData) -> Option<Ability> {
         match self {

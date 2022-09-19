@@ -1,6 +1,7 @@
 use std::{cell::RefCell, mem::swap};
 
 use colored::Colorize;
+use tinyvec::ArrayVec;
 
 use crate::{
     ability::{Ability, AbilityType},
@@ -20,22 +21,11 @@ macro_rules! println {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Events {
-    pub events: [Vec<Ability>; 10],
-    pub global: Option<[Option<Vec<Ability>>; 10]>,
+    pub events: [ArrayVec<[Option<Ability>; 4]>; 10],
+    pub global: Option<[ArrayVec<[Option<Ability>; 4]>; 10]>,
     global_count: usize,
-}
-
-impl Clone for Events {
-    #[inline]
-    fn clone(&self) -> Self {
-        Events {
-            events: Default::default(),
-            global: Clone::clone(&self.global),
-            global_count: self.global_count,
-        }
-    }
 }
 
 impl Default for Events {
@@ -56,7 +46,7 @@ impl Events {
         } else {
             match ability.ability_type {
                 AbilityType::Ability | AbilityType::Bonus => {
-                    self.events[ability.event_time() as usize].push(ability)
+                    self.events[ability.event_time() as usize].push(Some(ability))
                 }
                 // AbilityType::Global |
                 AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
@@ -65,10 +55,7 @@ impl Events {
                     }
                     let global = self.global.as_mut().unwrap();
                     let index = ability.event_time() as usize;
-                    if global[index] == None {
-                        global[index] = Some(Vec::new());
-                    }
-                    global[index].as_mut().unwrap().push(ability);
+                    global[index].push(Some(ability));
                     self.global_count += 1;
                 }
                 _ => (),
@@ -82,10 +69,7 @@ impl Events {
         }
         let global = self.global.as_mut().unwrap();
         let index = ability.event_time() as usize;
-        if global[index] == None {
-            global[index] = Some(Vec::new());
-        }
-        global[index].as_mut().unwrap().push(ability);
+        global[index].push(Some(ability));
         self.global_count += 1;
     }
 
@@ -94,37 +78,25 @@ impl Events {
 
         let x = &mut self.events[index];
         if x.len() != 0 {
-            let mut events = Vec::<Ability>::new();
+            let mut events = Default::default();
             swap(x, &mut events);
 
             for ability in events.iter_mut() {
-                if let Some(new_ability) = ability.apply(data) {
+                if let Some(new_ability) = ability.as_mut().unwrap().apply(data) {
                     self.add(new_ability);
                 }
             }
         }
 
         if self.global_count != 0 {
-            let mut clear = false;
-            if let Some(events) = self.global.as_mut().unwrap()[index].as_mut() {
-                for ability in events.iter_mut() {
-                    ability.apply(data);
-                }
+            let events = &mut self.global.as_mut().unwrap()[index];
+            for ability in events.iter_mut() {
+                ability.as_mut().unwrap().apply(data);
+            }
 
-                let len = events.len();
-                events.retain(|ab| ab.remove == false);
-                self.global_count -= len - events.len();
-                if events.len() == 0 {
-                    clear = true;
-                }
-            }
-            if clear {
-                if self.global_count == 0 {
-                    self.global = None;
-                } else {
-                    self.global.as_mut().unwrap()[index] = None;
-                }
-            }
+            let len = events.len();
+            events.retain(|ab| !ab.as_ref().unwrap().remove);
+            self.global_count -= len - events.len();
         }
     }
 
@@ -132,7 +104,8 @@ impl Events {
         let mut changed = false;
         for ability in self.events[EventTime::PRE4 as usize].iter_mut() {
             // let ability_type = ability.ability_type.clone();
-            if let Modifier::Cancel(modifier) = &mut ability.modifiers[0] {
+            let ability = ability.as_mut().unwrap();
+            if let Some(Modifier::Cancel(modifier)) = &mut ability.modifiers[0] {
                 if modifier.applied == None {
                     continue;
                 }

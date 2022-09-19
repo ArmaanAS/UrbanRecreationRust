@@ -183,7 +183,7 @@ pub enum PlayerType {
     Opponent,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Game {
     pub round: u8,
     pub p1: Player,
@@ -468,8 +468,8 @@ impl Game {
         self.p2.pillz_previous = self.p2.pillz;
 
         {
-            let card1 = self.h1.index(s1.index);
-            let card2 = self.h2.index(s2.index);
+            let card1 = &self.h1[s1.index];
+            let card2 = &self.h2[s2.index];
 
             self.events1.add(card1.get_ability());
             self.events2.add(card2.get_ability());
@@ -616,7 +616,7 @@ impl Game {
         }
         let p = self.get_turn_player().pillz;
         let pillz = if fury { pillz + 3 } else { pillz };
-        if pillz > p || self.get_turn_hand().index(index).played {
+        if pillz > p || self.get_turn_hand()[index].played {
             return false;
         }
         true

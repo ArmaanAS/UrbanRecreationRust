@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{de::IntoDeserializer, Deserialize, Deserializer};
 use serde_repr::Deserialize_repr;
 use simd_json::from_reader;
+use tinyvec::ArrayVec;
 
 use crate::{
     battle::BattleData,
@@ -46,12 +47,12 @@ pub enum AbilityType {
     GlobalBonus = 5,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct Ability {
     // pub ability: String,
     pub ability_type: AbilityType,
-    pub modifiers: Vec<Modifier>,
-    pub conditions: Vec<Condition>,
+    pub modifiers: ArrayVec<[Option<Modifier>; 2]>,
+    pub conditions: ArrayVec<[Option<Condition>; 3]>,
     #[serde(default)]
     pub delayed: bool,
     #[serde(default)]
@@ -60,24 +61,10 @@ pub struct Ability {
     pub remove: bool,
 }
 
-impl Clone for Ability {
-    #[inline]
-    fn clone(&self) -> Self {
-        Ability {
-            ability_type: self.ability_type,
-            modifiers: self.modifiers.clone(),
-            conditions: self.conditions.clone(),
-            delayed: self.delayed,
-            won: self.won,
-            remove: self.remove,
-        }
-    }
-}
-
 impl Ability {
     #[inline]
     pub fn event_time(&self) -> EventTime {
-        self.modifiers[0].event_time()
+        self.modifiers[0].as_ref().unwrap().event_time()
     }
     pub fn can_apply(&mut self, data: &BattleData) -> bool {
         if (self.ability_type == AbilityType::GlobalAbility
@@ -98,7 +85,7 @@ impl Ability {
         }
 
         for cond in self.conditions.iter() {
-            if !cond.is_met(data) {
+            if !cond.as_ref().unwrap().is_met(data) {
                 println!("{}: {:?}", "Condition not met".red(), cond);
                 return false;
             }
@@ -118,7 +105,7 @@ impl Ability {
         if self.can_apply(data) {
             for modifier in self.modifiers.iter_mut() {
                 println!("{}: {:?}", "Applying".yellow(), modifier);
-                ability = modifier.apply(data);
+                ability = modifier.as_mut().unwrap().apply(data);
             }
         }
         ability

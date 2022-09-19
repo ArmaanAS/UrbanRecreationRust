@@ -42,7 +42,7 @@ pub fn toggle_print() {
 }
 
 impl Solver {
-    pub fn middle(game: &Game) {
+    pub fn middle(game: Game) {
         let battle_count = unsafe { BATTLE_COUNT };
         toggle_print();
         let now = Instant::now();
@@ -71,7 +71,7 @@ impl Solver {
         }
     }
 
-    fn middle_second(game: &Game) {
+    fn middle_second(game: Game) {
         let i = if game.s1.is_none() {
             game.s2.unwrap().index
         } else {
@@ -84,7 +84,7 @@ impl Solver {
         let turn = game.get_turn();
         let hand = game.get_turn_hand();
 
-        let mut game = game.clone();
+        let mut game = game;
         game.clear_selection();
 
         let mut best_pillz = 0;
@@ -93,7 +93,7 @@ impl Solver {
         let mut best_selection = Selection::default();
 
         for index in 0..4 {
-            if hand.index(index).played {
+            if hand[index].played {
                 continue;
             }
 
@@ -173,7 +173,7 @@ impl Solver {
         println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
     }
 
-    fn middle_second_par(game: &Game) {
+    fn middle_second_par(game: Game) {
         let i = if game.s1.is_none() {
             game.s2.unwrap().index
         } else {
@@ -192,8 +192,6 @@ impl Solver {
             // .collect::<Vec<usize>>()
             .into_par_iter()
             .map(|index| {
-                let game = game.clone();
-
                 let mut best_pillz = 0;
                 let mut best_rate = 0f32;
                 let mut best_rate_rounded = 0u32;
@@ -286,7 +284,7 @@ impl Solver {
         );
     }
 
-    fn middle_first(game: &Game) {
+    fn middle_first(game: Game) {
         let pillz1 = game.get_turn_player().pillz;
         let pillz2 = game.get_turn_opponent().pillz;
 
@@ -300,7 +298,7 @@ impl Solver {
         let mut best_selection = Selection::default();
 
         for index in 0..4 {
-            if hand1.index(index).played {
+            if hand1[index].played {
                 continue;
             }
 
@@ -310,7 +308,7 @@ impl Solver {
                 let mut o_wins = 0;
 
                 for i in 0..4 {
-                    if hand2.index(i).played {
+                    if hand2[i].played {
                         continue;
                     }
 
@@ -386,13 +384,12 @@ impl Solver {
         println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
     }
 
-    fn middle_first_par(game: &Game) {
+    fn middle_first_par(game: Game) {
         let (best_rate, best_selection) = (0..4)
             // .filter(|&index| !game.get_turn_hand().index(index).played)
             // .collect::<Vec<usize>>()
             .into_par_iter()
             .map(|index| {
-                let game = game.clone();
                 // let hand1 = game.get_turn_hand();
                 let hand2 = game.get_turn_opponent_hand();
                 let pillz1 = game.get_turn_player().pillz;
@@ -410,7 +407,7 @@ impl Solver {
                     let mut o_wins = 0;
 
                     for i in 0..4 {
-                        if hand2.index(i).played {
+                        if hand2[i].played {
                             continue;
                         }
 
@@ -544,7 +541,7 @@ impl Solver {
     //     }
     // }
 
-    pub fn solve(game: &Game) -> SelectionResult {
+    pub fn solve(game: Game) -> SelectionResult {
         let solve_count: u64;
         let battle_count: u32;
         toggle_print();
@@ -554,9 +551,9 @@ impl Solver {
         }
         let now = Instant::now();
         let best = if game.s1.is_none() != game.s2.is_none() {
-            Solver::solve_second(game)
+            Solver::solve_second(&game)
         } else {
-            Solver::solve_first(game)
+            Solver::solve_first(&game)
         };
         toggle_print();
         unsafe {
@@ -603,7 +600,7 @@ impl Solver {
         let mut worst_result: Option<SelectionResult> = None;
 
         for index in 0..4usize {
-            if game.get_turn_opponent_hand().index(index).played {
+            if game.get_turn_opponent_hand()[index].played {
                 continue;
             }
 
@@ -673,7 +670,7 @@ impl Solver {
         let mut result: Option<SelectionResult> = None;
 
         for index in 0..4usize {
-            if game.get_turn_hand().index(index).played {
+            if game.get_turn_hand()[index].played {
                 continue;
             }
 

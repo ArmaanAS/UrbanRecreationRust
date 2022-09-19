@@ -17,6 +17,7 @@ mod modifiers;
 mod solver;
 mod types;
 
+#[allow(unreachable_code)]
 fn main() {
     ThreadPoolBuilder::new()
         .num_threads(4)
@@ -85,7 +86,7 @@ fn main() {
         //     }
         //     (_, _) => println!("{:?}", best),
         // }
-        Solver::middle(&game);
+        Solver::middle(game);
     }
 
     // return;
@@ -132,15 +133,15 @@ fn main() {
 
         if game.round == 0 {
             if !cancelled && turn == PlayerType::Player {
-                Solver::middle(&game);
+                Solver::middle(game);
             }
         } else {
-            let best = Solver::solve(&game);
+            let best = Solver::solve(game);
 
             match (best, turn) {
                 (SelectionResult::Player(_), PlayerType::Opponent)
                 | (SelectionResult::Opponent(_), PlayerType::Player) => {
-                    Solver::middle(&game);
+                    Solver::middle(game);
                 }
                 (_, _) => println!("{:?}", best),
             }
@@ -395,5 +396,27 @@ mod test5 {
         });
 
         // println!("{}", counter);
+    }
+}
+
+#[cfg(test)]
+mod test6 {
+    use tinyvec::ArrayVec;
+
+    #[derive(Debug, Default, Clone, Copy)]
+    struct Test {
+        a: u8,
+    }
+
+    #[test]
+    fn test() {
+        let mut vec = ArrayVec::<[Test; 4]>::new();
+        vec.push(Test { a: 1 });
+
+        let mut vec1 = vec;
+        vec1[0].a += 1;
+
+        println!("{:?}", vec);
+        println!("{:?}", vec1);
     }
 }

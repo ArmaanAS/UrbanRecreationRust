@@ -505,11 +505,11 @@ impl Card {
 
     #[inline]
     pub fn get_ability(&self) -> Ability {
-        ABILITIES[&self.ability_id].clone()
+        ABILITIES[&self.ability_id]
     }
     #[inline]
     pub fn get_bonus(&self) -> Ability {
-        ABILITIES[&self.bonus_id].clone()
+        ABILITIES[&self.bonus_id]
     }
 }
 
@@ -519,22 +519,6 @@ pub struct Hand {
     pub clan_count: [u8; 4],
     pub oculus_clan: Clan,
 }
-
-// impl Clone for Hand {
-//     #[inline]
-//     fn clone(&self) -> Self {
-//         Hand {
-//             cards: [
-//                 self.cards[0].clone(),
-//                 self.cards[1].clone(),
-//                 self.cards[2].clone(),
-//                 self.cards[3].clone(),
-//             ],
-//             clan_count: self.clan_count,
-//             oculus_clan: self.oculus_clan,
-//         }
-//     }
-// }
 
 impl Index<usize> for Hand {
     type Output = Card;
@@ -549,10 +533,10 @@ impl IndexMut<usize> for Hand {
 }
 
 impl Hand {
-    #[inline]
-    pub fn index(&self, index: usize) -> &Card {
-        &self.cards[index]
-    }
+    // #[inline]
+    // pub fn index(&self, index: usize) -> &Card {
+    //     &self.cards[index]
+    // }
     // pub fn index_mut(&self, index: usize) -> RefMut<Card> {
     //     self.cards[index].borrow_mut()
     // }
