@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
         Solver::middle(&game);
     }
 
-    // return;
+    return Ok(());
 
     println!("{} turn", game.get_turn_name());
     for line in io::stdin().lines() {
