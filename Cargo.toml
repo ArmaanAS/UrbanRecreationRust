@@ -18,6 +18,8 @@ regex = "1.6.0"
 nohash-hasher = "0.2.0"
 rayon = "1.5.3"
 tinyvec = { version = "1.6.0", features = ["serde"] }
+actix-web = "4.2.1"
+actix-cors = "0.6.2"
 
 [profile.release]
 debug = true

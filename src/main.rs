@@ -1,4 +1,7 @@
-use std::{env, io};
+use std::{
+    env,
+    io::{self, Result},
+};
 
 use game::Selection;
 use rayon::ThreadPoolBuilder;
@@ -14,11 +17,14 @@ mod battle;
 mod card;
 mod game;
 mod modifiers;
+mod server;
 mod solver;
 mod types;
+mod utils;
 
 #[allow(unreachable_code)]
-fn main() {
+#[actix_web::main]
+async fn main() -> Result<()> {
     ThreadPoolBuilder::new()
         .num_threads(4)
         .build_global()
@@ -43,38 +49,18 @@ fn main() {
         if args.len() == 10 {
             flip = 1;
         }
-        // let best = Solver::simulate(
-        //     args[1].as_str(),
-        //     args[2].as_str(),
-        //     args[3].as_str(),
-        //     args[4].as_str(),
-        //     args[5].as_str(),
-        //     args[6].as_str(),
-        //     args[7].as_str(),
-        //     args[8].as_str(),
-        //     flip,
-        // );
-        // println!("{:?}", best);
     } else {
-        h1 = Hand::from_names("Anagone", "Doela", "Elios", "Galahad");
-        h2 = Hand::from_names("Murray", "Petra", "Buck", "Keile");
+        // h1 = Hand::from_names("Anagone", "Doela", "Elios", "Galahad");
+        // h2 = Hand::from_names("Murray", "Petra", "Buck", "Keile");
+
+        server::serve().await?;
+
+        return Ok(());
     }
     let mut game = Game::new(h1, h2);
     game.flip = flip;
 
     game.print_status();
-
-    // game.select(0, 0, false);
-    // game.select(0, 1, false);
-
-    // game.select(1, 1, false);
-    // game.select(1, 2, false);
-
-    // game.select(2, 2, false);
-    // game.select(2, 3, true);
-
-    // game.select(1, 1, false);
-    // game.select(1, 2, false);
 
     if flip == 0 {
         // let best = Solver::solve(&game);
@@ -86,7 +72,7 @@ fn main() {
         //     }
         //     (_, _) => println!("{:?}", best),
         // }
-        Solver::middle(game);
+        Solver::middle(&game);
     }
 
     // return;
@@ -133,15 +119,15 @@ fn main() {
 
         if game.round == 0 {
             if !cancelled && turn == PlayerType::Player {
-                Solver::middle(game);
+                Solver::middle(&game);
             }
         } else {
-            let best = Solver::solve(game);
+            let best = Solver::solve(&game);
 
             match (best, turn) {
                 (SelectionResult::Player(_), PlayerType::Opponent)
                 | (SelectionResult::Opponent(_), PlayerType::Player) => {
-                    Solver::middle(game);
+                    Solver::middle(&game);
                 }
                 (_, _) => println!("{:?}", best),
             }
@@ -150,6 +136,8 @@ fn main() {
         println!("{} turn", game.get_turn_name());
     }
     game.print_status();
+
+    Ok(())
 }
 
 // #[cfg(test)]
@@ -418,5 +406,29 @@ mod test6 {
 
         println!("{:?}", vec);
         println!("{:?}", vec1);
+    }
+}
+
+#[cfg(test)]
+mod test7 {
+    use std::borrow::Cow;
+
+    #[derive(Debug, Default, Clone)]
+    struct Test<'a> {
+        a: Cow<'a, Option<bool>>,
+    }
+
+    #[test]
+    fn test() {
+        let mut a = Test {
+            a: Cow::Owned(None),
+        };
+        let mut b = a.clone();
+        let c = a.clone();
+        println!("{:?} {:?} {:?}", a.a, b.a, c.a);
+
+        *a.a.to_mut() = Some(false);
+        *b.a.to_mut() = Some(true);
+        println!("{:?} {:?} {:?}", a.a, b.a, c.a);
     }
 }

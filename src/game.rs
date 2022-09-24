@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use colored::{ColoredString, Colorize};
+use serde::Deserialize;
 
 use crate::{
     ability::AbilityType,
@@ -127,10 +128,12 @@ impl Player {
     }
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Deserialize)]
 pub struct Selection {
     pub index: usize,
+    #[serde(default)]
     pub pillz: u8,
+    #[serde(default)]
     pub fury: bool,
 }
 

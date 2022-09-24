@@ -28,10 +28,16 @@ macro_rules! println {
 }
 
 lazy_static! {
+    // pub static ref ABILITIES: HashMap<u32, Cow<'static, Ability>, BuildNoHashHasher<u32>> = {
     pub static ref ABILITIES: HashMap<u32, Ability, BuildNoHashHasher<u32>> = {
         let data_file =
             File::open(Path::new("./assets/compiled.json")).expect("file should open read only");
         from_reader(data_file).expect("Error while reading JSON file")
+        // from_reader::<_, HashMap<u32, Ability>>(data_file)
+        //     .expect("Error while reading JSON file")
+        //     .into_iter()
+        //     .map(|(k, v)| (k, Cow::Owned(v)))
+        //     .collect()
     };
     pub static ref CONDITION_CLANS: Mutex<HashMap<u8, Vec<Clan>>> = Mutex::new(HashMap::new());
     pub static ref CLANS_REGEX: Regex = Regex::new(r"\[[Cc]lan:(\d+)\]").unwrap();

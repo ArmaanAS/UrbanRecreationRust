@@ -1,13 +1,14 @@
 use std::{cell::RefCell, mem::swap};
 
 use colored::Colorize;
-use tinyvec::ArrayVec;
+// use tinyvec::ArrayVec;
 
 use crate::{
     ability::{Ability, AbilityType},
     card::{Card, HandCell},
     game::Player,
     modifiers::{EventTime, Modifier},
+    utils::StackVec4,
 };
 
 pub static mut PRINT: bool = true;
@@ -23,8 +24,8 @@ macro_rules! println {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Events {
-    pub events: [ArrayVec<[Option<Ability>; 4]>; 10],
-    pub global: Option<[ArrayVec<[Option<Ability>; 4]>; 10]>,
+    pub events: [StackVec4<Ability>; 10],
+    pub global: Option<[StackVec4<Ability>; 10]>,
     global_count: usize,
 }
 
@@ -46,7 +47,7 @@ impl Events {
         } else {
             match ability.ability_type {
                 AbilityType::Ability | AbilityType::Bonus => {
-                    self.events[ability.event_time() as usize].push(Some(ability))
+                    self.events[ability.event_time() as usize].push(ability);
                 }
                 // AbilityType::Global |
                 AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
@@ -55,7 +56,7 @@ impl Events {
                     }
                     let global = self.global.as_mut().unwrap();
                     let index = ability.event_time() as usize;
-                    global[index].push(Some(ability));
+                    global[index].push(ability);
                     self.global_count += 1;
                 }
                 _ => (),
@@ -64,48 +65,67 @@ impl Events {
     }
 
     pub fn add_global(&mut self, ability: Ability) {
+        if ability.modifiers.len() == 0 {
+            println!("{}: {:#?}", "Failed to add global ability".red(), ability);
+            return;
+        }
+
         if self.global == None {
             self.global = Some(Default::default());
         }
         let global = self.global.as_mut().unwrap();
         let index = ability.event_time() as usize;
-        global[index].push(Some(ability));
+        global[index].push(ability);
         self.global_count += 1;
     }
 
     pub fn execute(&mut self, event: EventTime, data: &BattleData) {
         let index = event as usize;
 
-        let x = &mut self.events[index];
-        if x.len() != 0 {
-            let mut events = Default::default();
-            swap(x, &mut events);
+        let x = unsafe { self.events.get_unchecked_mut(index) };
+        if x.len != 0 {
+            x.len = 0;
+            let mut events: [Option<Ability>; 4] = [None, None, None, None];
+            swap(&mut x.data, &mut events);
 
             for ability in events.iter_mut() {
-                if let Some(new_ability) = ability.as_mut().unwrap().apply(data) {
-                    self.add(new_ability);
+                if let Some(ability) = ability.as_mut() {
+                    if let Some(new_ability) = ability.apply(data) {
+                        self.add(new_ability);
+                    }
+                } else {
+                    break;
                 }
             }
         }
 
         if self.global_count != 0 {
             let events = &mut self.global.as_mut().unwrap()[index];
-            for ability in events.iter_mut() {
-                ability.as_mut().unwrap().apply(data);
-            }
+            for ability in events.data.iter_mut() {
+                let remove;
+                if let Some(ability) = ability {
+                    ability.apply(data);
+                    remove = ability.remove;
+                } else {
+                    break;
+                }
 
-            let len = events.len();
-            events.retain(|ab| !ab.as_ref().unwrap().remove);
-            self.global_count -= len - events.len();
+                if remove {
+                    *ability = None;
+                }
+            }
         }
     }
 
     pub fn check_cancels(&mut self, data: &BattleData) -> bool {
         let mut changed = false;
-        for ability in self.events[EventTime::PRE4 as usize].iter_mut() {
-            // let ability_type = ability.ability_type.clone();
+        for ability in self.events[EventTime::PRE4 as usize].data.iter_mut() {
+            if ability.is_none() {
+                break;
+            }
+
             let ability = ability.as_mut().unwrap();
-            if let Some(Modifier::Cancel(modifier)) = &mut ability.modifiers[0] {
+            if let Some(Modifier::Cancel(mut modifier)) = ability.modifiers[0].clone() {
                 if modifier.applied == None {
                     continue;
                 }

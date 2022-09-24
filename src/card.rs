@@ -503,13 +503,21 @@ impl Card {
         );
     }
 
+    // #[inline]
+    // pub fn get_ability(&self) -> Cow<'static, Ability> {
+    //     ABILITIES[&self.ability_id].clone()
+    // }
+    // #[inline]
+    // pub fn get_bonus(&self) -> Cow<'static, Ability> {
+    //     ABILITIES[&self.bonus_id].clone()
+    // }
     #[inline]
     pub fn get_ability(&self) -> Ability {
-        ABILITIES[&self.ability_id]
+        ABILITIES[&self.ability_id].clone()
     }
     #[inline]
     pub fn get_bonus(&self) -> Ability {
-        ABILITIES[&self.bonus_id]
+        ABILITIES[&self.bonus_id].clone()
     }
 }
 
@@ -702,7 +710,7 @@ impl Hand {
                 RefCell::new(c),
                 RefCell::new(d),
             ],
-            clan_count: self.clan_count,
+            clan_count: &mut self.clan_count,
             oculus_clan: self.oculus_clan,
         }
     }
@@ -711,24 +719,11 @@ impl Hand {
 #[derive(Debug)]
 pub struct HandCell<'a> {
     pub cards: [RefCell<&'a mut Card>; 4],
-    pub clan_count: [u8; 4],
+    pub clan_count: &'a mut [u8; 4],
     pub oculus_clan: Clan,
 }
 
 impl HandCell<'_> {
-    #[inline]
-    pub fn to_hand(self) -> Hand {
-        Hand {
-            cards: [
-                self.cards[0].borrow_mut().to_owned(),
-                self.cards[1].borrow_mut().to_owned(),
-                self.cards[2].borrow_mut().to_owned(),
-                self.cards[3].borrow_mut().to_owned(),
-            ],
-            clan_count: self.clan_count,
-            oculus_clan: self.oculus_clan,
-        }
-    }
     #[inline]
     pub fn card_clan_count(&self, index: usize) -> u8 {
         self.clan_count[index]

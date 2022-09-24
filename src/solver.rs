@@ -42,7 +42,7 @@ pub fn toggle_print() {
 }
 
 impl Solver {
-    pub fn middle(game: Game) {
+    pub fn middle(game: &Game) {
         let battle_count = unsafe { BATTLE_COUNT };
         toggle_print();
         let now = Instant::now();
@@ -71,7 +71,34 @@ impl Solver {
         }
     }
 
-    fn middle_second(game: Game) {
+    fn print_count(pillz: u8, fury: bool, wins: u8, draws: u8, losses: u8) {
+        let rate = (wins + draws) as f32 / (wins + draws + losses) as f32;
+        if losses == 0 {
+            if draws == 0 {
+                print!("{} ", pillz.to_string().black().on_green());
+            } else {
+                print!("{} ", "d".bright_yellow());
+            }
+        } else if wins + draws > losses {
+            if wins == 0 {
+                print!("{} ", "d".bright_yellow());
+            } else {
+                print!(
+                    "{} ",
+                    format!("{:X}", pillz).color(if fury { Color::Red } else { Color::Green })
+                )
+            }
+        } else if rate <= 0.25 {
+            print!("{} ", "x".bright_black())
+        } else if wins + draws <= losses {
+            print!("{} ", format!("{:X}", pillz).bright_black())
+        } else {
+            println!("({}, {}, {})", wins, losses, draws);
+        }
+        stdout().flush().unwrap();
+    }
+
+    fn middle_second(game: &Game) {
         let i = if game.s1.is_none() {
             game.s2.unwrap().index
         } else {
@@ -84,7 +111,7 @@ impl Solver {
         let turn = game.get_turn();
         let hand = game.get_turn_hand();
 
-        let mut game = game;
+        let mut game = game.clone();
         game.clear_selection();
 
         let mut best_pillz = 0;
@@ -138,33 +165,7 @@ impl Solver {
                     best_selection = Selection::new(index, pillz, fury);
                 }
 
-                if losses == 0 {
-                    if draws == 0 {
-                        print!("{} ", pillz.to_string().black().on_green());
-                    } else {
-                        print!("{} ", "d".bright_yellow());
-                    }
-                } else if wins + draws > losses {
-                    if wins == 0 {
-                        print!("{} ", "d".bright_yellow());
-                    } else {
-                        print!(
-                            "{} ",
-                            format!("{:X}", pillz).color(if fury {
-                                Color::Red
-                            } else {
-                                Color::Green
-                            })
-                        )
-                    }
-                } else if rate <= 0.25 {
-                    print!("{} ", "x".bright_black())
-                } else if wins + draws <= losses {
-                    print!("{} ", format!("{:X}", pillz).bright_black())
-                } else {
-                    println!("({}, {}, {})", wins, losses, draws);
-                }
-                stdout().flush().unwrap();
+                Solver::print_count(pillz, fury, wins, draws, losses);
             }
             // println!();
             println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
@@ -173,7 +174,7 @@ impl Solver {
         println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
     }
 
-    fn middle_second_par(game: Game) {
+    fn middle_second_par(game: &Game) {
         let i = if game.s1.is_none() {
             game.s2.unwrap().index
         } else {
@@ -187,7 +188,7 @@ impl Solver {
         let mut game = game.clone();
         game.clear_selection();
 
-        let (best_rate, best_selection) = (0..4)
+        let (best_rate, best_selection, ..) = (0..4)
             // .filter(|&index| !game.get_turn_hand().index(index).played)
             // .collect::<Vec<usize>>()
             .into_par_iter()
@@ -241,40 +242,14 @@ impl Solver {
                         best_selection = Selection::new(index, pillz, fury);
                     }
 
-                    if losses == 0 {
-                        if draws == 0 {
-                            print!("{} ", pillz.to_string().black().on_green());
-                        } else {
-                            print!("{} ", "d".bright_yellow());
-                        }
-                    } else if wins + draws > losses {
-                        if wins == 0 {
-                            print!("{} ", "d".bright_yellow());
-                        } else {
-                            print!(
-                                "{} ",
-                                format!("{:X}", pillz).color(if fury {
-                                    Color::Red
-                                } else {
-                                    Color::Green
-                                })
-                            )
-                        }
-                    } else if rate <= 0.25 {
-                        print!("{} ", "x".bright_black())
-                    } else if wins + draws <= losses {
-                        print!("{} ", format!("{:X}", pillz).bright_black())
-                    } else {
-                        println!("({}, {}, {})", wins, losses, draws);
-                    }
-                    stdout().flush().unwrap();
+                    Solver::print_count(pillz, fury, wins, draws, losses);
                 }
                 // println!();
                 println!("\n({:.1?}%) {:?}", best_rate * 100f32, best_selection);
 
-                (best_rate, best_selection)
+                (best_rate, best_selection, best_rate_rounded)
             })
-            .max_by_key(|&(rate, _)| (rate * 1000f32) as u32)
+            .max_by_key(|&(_, s, rate)| rate * 100 + (24 - s.pillz as u32))
             .unwrap();
 
         println!(
@@ -284,7 +259,7 @@ impl Solver {
         );
     }
 
-    fn middle_first(game: Game) {
+    fn middle_first(game: &Game) {
         let pillz1 = game.get_turn_player().pillz;
         let pillz2 = game.get_turn_opponent().pillz;
 
@@ -341,7 +316,7 @@ impl Solver {
                 let rate = (wins + draws) as f32 / (wins + draws + losses) as f32;
                 let rate_rounded = (rate * 100f32) as u32 / 10;
                 if rate_rounded > best_rate_rounded
-                    || (rate_rounded == best_rate_rounded && pillz < best_pillz)
+                    || (rate_rounded == best_rate_rounded && pillz > best_pillz)
                 {
                     best_pillz = pillz;
                     best_rate = rate;
@@ -349,33 +324,7 @@ impl Solver {
                     best_selection = Selection::new(index, pillz, fury);
                 }
 
-                if losses == 0 {
-                    if draws == 0 {
-                        print!("{} ", pillz.to_string().black().on_green());
-                    } else {
-                        print!("{} ", "d".bright_yellow());
-                    }
-                } else if wins + draws > losses {
-                    if wins == 0 {
-                        print!("{} ", "d".bright_yellow());
-                    } else {
-                        print!(
-                            "{} ",
-                            format!("{:X}", pillz).color(if fury {
-                                Color::Red
-                            } else {
-                                Color::Green
-                            })
-                        )
-                    }
-                } else if rate <= 0.25 {
-                    print!("{} ", "x".bright_black())
-                } else if wins + draws <= losses {
-                    print!("{} ", format!("{:X}", pillz).bright_black())
-                } else {
-                    println!("({}, {}, {})", wins, losses, draws);
-                }
-                stdout().flush().unwrap();
+                Solver::print_count(pillz, fury, wins, draws, losses);
             }
             // println!();
             println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
@@ -384,8 +333,8 @@ impl Solver {
         println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
     }
 
-    fn middle_first_par(game: Game) {
-        let (best_rate, best_selection) = (0..4)
+    fn middle_first_par(game: &Game) {
+        let (best_rate, best_selection, ..) = (0..4)
             // .filter(|&index| !game.get_turn_hand().index(index).played)
             // .collect::<Vec<usize>>()
             .into_par_iter()
@@ -443,7 +392,7 @@ impl Solver {
                     let rate = (wins + draws) as f32 / (wins + draws + losses) as f32;
                     let rate_rounded = (rate * 100f32) as u32 / 10;
                     if rate_rounded > best_rate_rounded
-                        || (rate_rounded == best_rate_rounded && pillz < best_pillz)
+                        || (rate_rounded == best_rate_rounded && pillz > best_pillz)
                     {
                         best_pillz = pillz;
                         best_rate = rate;
@@ -451,40 +400,14 @@ impl Solver {
                         best_selection = Selection::new(index, pillz, fury);
                     }
 
-                    if losses == 0 {
-                        if draws == 0 {
-                            print!("{} ", pillz.to_string().black().on_green());
-                        } else {
-                            print!("{} ", "d".bright_yellow());
-                        }
-                    } else if wins + draws > losses {
-                        if wins == 0 {
-                            print!("{} ", "d".bright_yellow());
-                        } else {
-                            print!(
-                                "{} ",
-                                format!("{:X}", pillz).color(if fury {
-                                    Color::Red
-                                } else {
-                                    Color::Green
-                                })
-                            )
-                        }
-                    } else if rate <= 0.25 {
-                        print!("{} ", "x".bright_black())
-                    } else if wins + draws <= losses {
-                        print!("{} ", format!("{:X}", pillz).bright_black())
-                    } else {
-                        println!("({}, {}, {})", wins, losses, draws);
-                    }
-                    // stdout().flush().unwrap();
+                    Solver::print_count(pillz, fury, wins, draws, losses);
                 }
                 // println!();
                 println!("\n({:.1?}%) {:?}", best_rate * 100f32, best_selection);
 
-                (best_rate, best_selection)
+                (best_rate, best_selection, best_rate_rounded)
             })
-            .max_by_key(|&(rate, _)| (rate * 1000f32) as u32)
+            .max_by_key(|&(_, s, rate)| rate * 100 + (24 - s.pillz as u32))
             .unwrap();
 
         println!(
@@ -541,7 +464,7 @@ impl Solver {
     //     }
     // }
 
-    pub fn solve(game: Game) -> SelectionResult {
+    pub fn solve(game: &Game) -> SelectionResult {
         let solve_count: u64;
         let battle_count: u32;
         toggle_print();
