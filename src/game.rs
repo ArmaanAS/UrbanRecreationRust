@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, sync::atomic::AtomicU32};
 
 use colored::{ColoredString, Colorize};
 use serde::Deserialize;
@@ -21,7 +21,8 @@ macro_rules! println {
         }
     }
 }
-pub static mut BATTLE_COUNT: u32 = 0;
+
+pub static mut BATTLE_COUNT: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RoundWin {
@@ -463,6 +464,19 @@ impl Game {
         let total_pillz1 = if fury1 { pillz1 + 3 } else { pillz1 };
         let total_pillz2 = if fury2 { pillz2 + 3 } else { pillz2 };
 
+        assert!(
+            total_pillz1 <= self.p1.pillz,
+            "{}, {}",
+            total_pillz1,
+            self.p1.pillz
+        );
+        assert!(
+            total_pillz2 <= self.p2.pillz,
+            "{}, {}",
+            total_pillz2,
+            self.p2.pillz
+        );
+
         self.p1.won_previous = self.p1.won;
         self.p2.won_previous = self.p2.won;
         self.p1.life_previous = self.p1.life;
@@ -609,7 +623,7 @@ impl Game {
         self.round += 1;
 
         unsafe {
-            BATTLE_COUNT += 1;
+            *BATTLE_COUNT.get_mut() += 1;
         }
     }
 

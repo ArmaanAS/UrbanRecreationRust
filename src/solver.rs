@@ -1,3 +1,4 @@
+use core::sync::atomic::Ordering;
 use std::{
     io::{stdout, Write},
     slice::Iter,
@@ -13,8 +14,6 @@ use crate::{
     game::{self, Game, GameStatus, PlayerType, Selection, BATTLE_COUNT},
     modifiers,
 };
-
-static mut SOLVE_COUNT: u64 = 0;
 
 pub struct Solver {}
 
@@ -43,7 +42,7 @@ pub fn toggle_print() {
 
 impl Solver {
     pub fn middle(game: &Game) {
-        let battle_count = unsafe { BATTLE_COUNT };
+        let battle_count = unsafe { BATTLE_COUNT.load(Ordering::Relaxed) };
         toggle_print();
         let now = Instant::now();
         if game.s1.is_some() || game.s2.is_some() {
@@ -58,17 +57,15 @@ impl Solver {
             Solver::middle_first(game);
         }
         toggle_print();
-        unsafe {
-            let battles = BATTLE_COUNT - battle_count;
-            let elapsed = now.elapsed();
-            println!(
-                "{} {} /{:.1?}secs  ({:.0?}k/s)",
-                " Battle Count ".white().on_bright_purple(),
-                battles,
-                elapsed.as_secs_f32(),
-                battles as f32 / elapsed.as_secs_f32() / 1000f32
-            );
-        }
+        let battles: u32 = unsafe { BATTLE_COUNT.load(Ordering::Relaxed) } - battle_count;
+        let elapsed = now.elapsed();
+        println!(
+            "{} {} /{:.1?}secs  ({:.0?}k/s)",
+            " Battle Count ".white().on_bright_purple(),
+            battles,
+            elapsed.as_secs_f32(),
+            battles as f32 / elapsed.as_secs_f32() / 1000f32
+        );
     }
 
     fn print_count(pillz: u8, fury: bool, wins: u8, draws: u8, losses: u8) {
@@ -417,96 +414,32 @@ impl Solver {
         );
     }
 
-    // pub fn middle_first(game: &Game) {
-    //     let turn = game.get_turn();
-    //     let pillz = game.get_turn_player().pillz;
-    //     let hand = game.get_turn_hand();
-
-    //     for index in 0..4 {
-    //         if hand.index(index).played {
-    //             continue;
-    //         }
-
-    //         for &(pillz, fury) in split_range(pillz) {
-    //             let mut g = game.clone();
-    //             let battled = g.select(index, pillz, fury);
-
-    //             let status = if battled {
-    //                 g.status()
-    //             } else {
-    //                 GameStatus::Playing
-    //             };
-    //             let win: PlayerResult;
-    //             match status {
-    //                 GameStatus::Player => win = PlayerResult::Player,
-    //                 GameStatus::Draw => win = PlayerResult::Draw,
-    //                 GameStatus::Opponent => win = PlayerResult::Opponent,
-    //                 GameStatus::Playing => {
-    //                     let best = Solver::solve_first(&g);
-    //                     match best {
-    //                         SelectionResult::Player(_) => win = PlayerResult::Player,
-    //                         SelectionResult::Draw(_) => win = PlayerResult::Draw,
-    //                         SelectionResult::Opponent(_) => win = PlayerResult::Opponent,
-    //                     }
-    //                 }
-    //             }
-    //             match (win, turn) {
-    //                 (PlayerResult::Player, PlayerType::Player)
-    //                 | (PlayerResult::Opponent, PlayerType::Opponent) => print!(
-    //                     "{} ",
-    //                     format!("{:X}", pillz).color(if fury { Color::Red } else { Color::Green })
-    //                 ),
-    //                 (PlayerResult::Draw, _) => print!("{} ", "d".bright_yellow()),
-    //                 (_, _) => print!("{} ", "x".bright_black()),
-    //             }
-    //         }
-    //         println!();
-    //     }
-    // }
-
     pub fn solve(game: &Game) -> SelectionResult {
-        let solve_count: u64;
-        let battle_count: u32;
-        toggle_print();
-        unsafe {
-            solve_count = SOLVE_COUNT;
-            battle_count = BATTLE_COUNT;
-        }
+        let battle_count = unsafe { BATTLE_COUNT.load(Ordering::Relaxed) };
         let now = Instant::now();
+
+        toggle_print();
         let best = if game.s1.is_none() != game.s2.is_none() {
             Solver::solve_second(&game)
         } else {
             Solver::solve_first(&game)
         };
         toggle_print();
-        unsafe {
-            let solves = SOLVE_COUNT - solve_count;
-            let battles = BATTLE_COUNT - battle_count;
-            let elapsed = now.elapsed();
-            println!(
-                "{} {} /{:.1?}secs ({:.0?}k/s) - Final count",
-                " Solve Count ".white().on_magenta(),
-                solves,
-                elapsed.as_secs_f32(),
-                solves as f32 / elapsed.as_secs_f32() / 1000f32
-            );
-            println!(
-                "{} {} /{:.1?}secs ({:.0?}k/s) - Final count",
-                " Battle Count ".white().on_bright_purple(),
-                battles,
-                elapsed.as_secs_f32(),
-                battles as f32 / elapsed.as_secs_f32() / 1000f32
-            );
-        }
+
+        let battles = unsafe { BATTLE_COUNT.load(Ordering::Relaxed) } - battle_count;
+        let elapsed = now.elapsed();
+        println!(
+            "{} {} /{:.1?}secs ({:.0?}k/s)",
+            " Battle Count ".white().on_bright_purple(),
+            battles,
+            elapsed.as_secs_f32(),
+            battles as f32 / elapsed.as_secs_f32() / 1000f32
+        );
         // handler.join().unwrap();
         best
     }
 
     pub fn solve_second(game: &Game) -> SelectionResult {
-        unsafe {
-            SOLVE_COUNT += 1;
-        }
-
         let turn = game.get_turn();
         let i = if game.s1.is_none() {
             game.s2.unwrap().index
@@ -528,8 +461,10 @@ impl Solver {
             }
 
             for &(pillz, fury) in split_shift_range(pillz1) {
+                // for &(pillz, fury) in split_range(pillz1) {
                 let mut worst = GameResult::Win;
                 for &(p, f) in split_shift_range(pillz2) {
+                    // for &(p, f) in split_range(pillz2) {
                     let mut g = game.clone();
                     g.select(i, p, f);
                     g.select(index, pillz, fury);
@@ -586,18 +521,17 @@ impl Solver {
     }
 
     pub fn solve_first(game: &Game) -> SelectionResult {
-        unsafe {
-            SOLVE_COUNT += 1;
-        }
         let turn = game.get_turn();
         let mut result: Option<SelectionResult> = None;
 
+        let pillz = game.get_turn_player().pillz;
         for index in 0..4usize {
             if game.get_turn_hand()[index].played {
                 continue;
             }
 
-            for &(pillz, fury) in split_shift_range(game.get_turn_player().pillz) {
+            for &(pillz, fury) in split_shift_range(pillz) {
+                // for &(pillz, fury) in split_range(pillz) {
                 let mut g = game.clone();
 
                 let battled = g.select(index, pillz, fury);
@@ -676,12 +610,13 @@ impl Solver {
     }
 }
 
+static N: u8 = 32;
 lazy_static! {
     #[derive(Debug)]
     static ref SHIFT_RANGES: Vec<Vec<(u8, bool)>> = {
-        let mut ranges = Vec::with_capacity(20);
-        for n in 0..20u8 {
-            let mut range = Vec::with_capacity(n as usize);
+        let mut ranges = Vec::with_capacity(N as usize);
+        for n in 0..N {
+            let mut range = Vec::new();
 
             range.push((n, false));
 
@@ -708,9 +643,9 @@ lazy_static! {
         ranges
     };
     static ref SPLIT_SHIFT_RANGES: Vec<Vec<(u8, bool)>> = {
-        let mut ranges = Vec::with_capacity(20);
-        for n in 0..20u8 {
-            let mut range = Vec::with_capacity(n as usize);
+        let mut ranges = Vec::with_capacity(N as usize);
+        for n in 0..N {
+            let mut range = Vec::new();
 
             range.push((n, false));
 
@@ -740,9 +675,9 @@ lazy_static! {
         ranges
     };
     static ref SHIFT_FALSE_RANGES: Vec<Vec<(u8, bool)>> = {
-        let mut ranges = Vec::with_capacity(20);
-        for n in 0..20u8 {
-            let mut range = Vec::with_capacity(n as usize);
+        let mut ranges = Vec::with_capacity(N as usize);
+        for n in 0..N {
+            let mut range = Vec::new();
 
             range.push((n, false));
 
@@ -765,9 +700,9 @@ lazy_static! {
         ranges
     };
     static ref RANGES: Vec<Vec<(u8, bool)>> = {
-        let mut ranges = Vec::with_capacity(20);
-        for n in 0..20u8 {
-            let mut range = Vec::with_capacity(n as usize);
+        let mut ranges = Vec::with_capacity(N as usize);
+        for n in 0..N {
+            let mut range = Vec::new();
 
             if n >= 3 {
                 for i in 0..n-2 {
@@ -786,16 +721,18 @@ lazy_static! {
         ranges
     };
     static ref SPLIT_RANGES: Vec<Vec<(u8, bool)>> = {
-        let mut ranges = Vec::with_capacity(20);
-        for n in 0..20u8 {
-            let mut range = Vec::with_capacity(n as usize);
+        let mut ranges = Vec::with_capacity(N as usize);
+        for n in 0..N {
+            let mut range = Vec::new();
 
             for i in 0..=n {
                 range.push((i, false));
             }
 
-            for i in 0..=n-3 {
-                range.push((i, true));
+            if n >= 3 {
+                for i in 0..=n-3 {
+                    range.push((i, true));
+                }
             }
 
             ranges.push(range);
@@ -804,9 +741,9 @@ lazy_static! {
         ranges
     };
     static ref FALSE_RANGES: Vec<Vec<(u8, bool)>> = {
-        let mut ranges = Vec::with_capacity(20);
-        for n in 0..20u8 {
-            let mut range = Vec::with_capacity(n as usize);
+        let mut ranges = Vec::with_capacity(N as usize);
+        for n in 0..N {
+            let mut range = Vec::new();
 
             for i in 0..=n {
                 range.push((i, false));
@@ -859,7 +796,7 @@ fn shift_false_range(n: u8, round: u8) -> Iter<'static, (u8, bool)> {
 
 #[test]
 fn test() {
-    for i in 0..20 {
-        println!("{:#?}", SHIFT_RANGES[i]);
+    for i in 0..N {
+        println!("{:?}", SPLIT_RANGES[i as usize]);
     }
 }
