@@ -1,4 +1,9 @@
-use std::{cell::RefCell, sync::atomic::AtomicU32};
+use std::{
+    cell::RefCell,
+    fmt::Display,
+    hash::Hash,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use colored::{ColoredString, Colorize};
 use serde::Deserialize;
@@ -129,13 +134,31 @@ impl Player {
     }
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Default, Debug, Eq, PartialEq, Deserialize, Hash)]
 pub struct Selection {
     pub index: usize,
     #[serde(default)]
     pub pillz: u8,
     #[serde(default)]
     pub fury: bool,
+}
+
+impl Display for Selection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.fury {
+            write!(
+                f,
+                "{} {} {}",
+                self.index,
+                self.pillz,
+                format!("{}", self.fury).red()
+            )?;
+        } else {
+            write!(f, "{} {} {}", self.index, self.pillz, self.fury)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Selection {
@@ -385,6 +408,9 @@ impl Game {
             PlayerType::Opponent
         }
     }
+    pub fn has_someone_selected(&self) -> bool {
+        self.s1.is_some() || self.s2.is_some()
+    }
 
     fn print_battle(&self, attack1: u8, attack2: u8) {
         unsafe {
@@ -623,7 +649,8 @@ impl Game {
         self.round += 1;
 
         unsafe {
-            *BATTLE_COUNT.get_mut() += 1;
+            // *BATTLE_COUNT.get_mut() += 1;
+            BATTLE_COUNT.fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -664,6 +691,14 @@ impl Game {
             self.print_status();
             false
         }
+    }
+
+    pub fn select_both(&mut self, s1: Selection, s2: Selection) {
+        self.s1 = Some(s1);
+        self.s2 = Some(s2);
+        self.battle();
+        self.s1 = None;
+        self.s2 = None;
     }
 
     pub fn clear_selection(&mut self) {

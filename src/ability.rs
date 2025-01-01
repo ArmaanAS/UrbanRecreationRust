@@ -6,7 +6,8 @@ use nohash_hasher::BuildNoHashHasher;
 use regex::Regex;
 use serde::{de::IntoDeserializer, Deserialize, Deserializer};
 use serde_repr::Deserialize_repr;
-use simd_json::from_reader;
+// use simd_json::from_reader;
+use serde_json::from_reader;
 use tinyvec::ArrayVec;
 
 use crate::{
@@ -31,7 +32,7 @@ lazy_static! {
     // pub static ref ABILITIES: HashMap<u32, Cow<'static, Ability>, BuildNoHashHasher<u32>> = {
     pub static ref ABILITIES: HashMap<u32, Ability, BuildNoHashHasher<u32>> = {
         let data_file =
-            File::open(Path::new("./assets/compiled.json")).expect("file should open read only");
+            File::open(Path::new("./assets/compiled.json")).unwrap();
         from_reader(data_file).expect("Error while reading JSON file")
         // from_reader::<_, HashMap<u32, Ability>>(data_file)
         //     .expect("Error while reading JSON file")
@@ -110,7 +111,7 @@ impl Ability {
         let mut ability: Option<Ability> = None;
         if self.can_apply(data) {
             for modifier in self.modifiers.iter_mut() {
-                println!("{}: {:?}", "Applying".yellow(), modifier);
+                println!("{}: {:?}", "Applying".yellow(), modifier.as_ref().unwrap());
                 ability = modifier.as_mut().unwrap().apply(data);
             }
         }

@@ -475,7 +475,11 @@ pub struct RecoverModifier {
 impl RecoverModifier {
     fn apply(&mut self, data: &BattleData) {
         if !data.card.borrow().pillz.is_blocked() {
-            let gain = data.player_pillz_used * self.n / self.out_of;
+            #[inline(always)]
+            fn ceil_divide(top: u8, bottom: u8) -> u8 {
+                (top + bottom - 1) / bottom
+            }
+            let gain = ceil_divide(data.player_pillz_used * self.n, self.out_of);
             println!(
                 "Player recovered {} pillz / {}",
                 gain, data.player_pillz_used

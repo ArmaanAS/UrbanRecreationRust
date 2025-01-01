@@ -25,8 +25,6 @@ macro_rules! println {
 pub struct Events {
     events: StackVec4<(EventTime, Ability)>,
     global: Option<StackVec4<(EventTime, Ability)>>,
-    // events: [(EventTime, Ability); 4],
-    // global: Option<[(EventTime, Ability); 4]>,
 }
 
 impl Default for Events {
@@ -50,13 +48,13 @@ impl Events {
                 }
                 AbilityType::GlobalAbility | AbilityType::GlobalBonus => {
                     if self.global == None {
-                        self.global = Some(StackVec4 {
-                            len: 1,
-                            data: [Some((ability.event_time(), ability)), None, None, None],
-                        });
-                    } else {
-                        self.global.unwrap().push((ability.event_time(), ability));
+                        self.global = Some(Default::default());
                     }
+                    // println!("{}: {:#?}", "Global abilities".red(), self.global.unwrap());
+                    self.global
+                        .as_mut()
+                        .unwrap()
+                        .push((ability.event_time(), ability));
                 }
                 _ => (),
             }
@@ -72,16 +70,27 @@ impl Events {
         if self.global == None {
             self.global = Some(Default::default());
         }
-        self.global.unwrap().push((ability.event_time(), ability));
+        self.global
+            .as_mut()
+            .unwrap()
+            .push((ability.event_time(), ability));
+        // println!(
+        //     "{}: {:#?}",
+        //     "Global abilities".purple(),
+        //     self.global.unwrap()
+        // );
+        println!("{}: {:#?}", "Added global ability".green(), ability);
     }
 
     pub fn execute(&mut self, event: EventTime, data: &BattleData) {
         if self.events.len != 0 {
             let mut new_abilities = Vec::<Ability>::new();
             for item in self.events.data.iter_mut() {
-                if let Some((et, ability)) = item && event == *et {
-                    if let Some(new_ability) = ability.apply(data) {
-                        new_abilities.push(new_ability);
+                if let Some((et, ability)) = item {
+                    if event == *et {
+                        if let Some(new_ability) = ability.apply(data) {
+                            new_abilities.push(new_ability);
+                        }
                     }
                 }
             }
@@ -92,54 +101,59 @@ impl Events {
 
         if let Some(global) = self.global.as_mut() {
             for item in global.data.iter_mut() {
-                if let Some((et, ability)) = item && event == *et {
-                    ability.apply(data);
-                    if ability.remove {
-                        *item = None;
+                if let Some((et, ability)) = item {
+                    if event == *et {
+                        ability.apply(data);
+                        if ability.remove {
+                            *item = None;
+                        }
                     }
                 }
             }
+            global.compact();
         }
     }
 
     pub fn check_cancels(&mut self, data: &BattleData) -> bool {
         let mut changed = false;
         for item in self.events.data.iter_mut() {
-            if let Some((et, ability)) = item && *et == EventTime::PRE4 {
-                if let Some(Modifier::Cancel(mut modifier)) = ability.modifiers[0].clone() {
-                    if modifier.applied == None {
-                        continue;
-                    }
-
-                    let applied = modifier.applied.unwrap();
-
-                    // println!("Applied is some: {:?}", ability.ability_type);
-                    if ability.ability_type == AbilityType::Ability {
-                        println!("{:?}", data.card.borrow());
-                        // if data.card.borrow().ability.attr.is_blocked() == applied {
-                        if data.card.borrow().ability.is_blocked() == applied {
-                            println!("{}: {:?}", "Undoing ability".red(), modifier);
-                            if applied {
-                                println!("{}: {:?}", "Undoing bonus".red(), modifier);
-                                modifier.undo(data);
-                            } else {
-                                println!("{}: {:?}", "Redoing bonus".yellow(), modifier);
-                                modifier.apply(data);
-                            }
-                            changed = true;
+            if let Some((et, ability)) = item {
+                if *et == EventTime::PRE4 {
+                    if let Some(Modifier::Cancel(mut modifier)) = ability.modifiers[0].clone() {
+                        if modifier.applied == None {
+                            continue;
                         }
-                    } else if ability.ability_type == AbilityType::Bonus {
-                        // println!("{:?}", data.card.borrow());
-                        // if data.card.borrow().bonus.attr.is_blocked() == applied {
-                        if data.card.borrow().bonus.is_blocked() == applied {
-                            if applied {
-                                println!("{}: {:?}", "Undoing bonus".red(), modifier);
-                                modifier.undo(data);
-                            } else {
-                                println!("{}: {:?}", "Redoing bonus".yellow(), modifier);
-                                modifier.apply(data);
+
+                        let applied = modifier.applied.unwrap();
+
+                        // println!("Applied is some: {:?}", ability.ability_type);
+                        if ability.ability_type == AbilityType::Ability {
+                            println!("{:?}", data.card.borrow());
+                            // if data.card.borrow().ability.attr.is_blocked() == applied {
+                            if data.card.borrow().ability.is_blocked() == applied {
+                                println!("{}: {:?}", "Undoing ability".red(), modifier);
+                                if applied {
+                                    println!("{}: {:?}", "Undoing bonus".red(), modifier);
+                                    modifier.undo(data);
+                                } else {
+                                    println!("{}: {:?}", "Redoing bonus".yellow(), modifier);
+                                    modifier.apply(data);
+                                }
+                                changed = true;
                             }
-                            changed = true;
+                        } else if ability.ability_type == AbilityType::Bonus {
+                            // println!("{:?}", data.card.borrow());
+                            // if data.card.borrow().bonus.attr.is_blocked() == applied {
+                            if data.card.borrow().bonus.is_blocked() == applied {
+                                if applied {
+                                    println!("{}: {:?}", "Undoing bonus".red(), modifier);
+                                    modifier.undo(data);
+                                } else {
+                                    println!("{}: {:?}", "Redoing bonus".yellow(), modifier);
+                                    modifier.apply(data);
+                                }
+                                changed = true;
+                            }
                         }
                     }
                 }
@@ -152,17 +166,6 @@ impl Events {
     pub fn execute_start(&mut self, data: &BattleData) {
         self.execute(EventTime::START, data);
     }
-
-    // pub fn execute_pre(&mut self, data: &BattleData) {
-    //     for e in [
-    //         EventTime::PRE4,
-    //         EventTime::PRE3,
-    //         EventTime::PRE2,
-    //         EventTime::PRE1,
-    //     ] {
-    //         self.execute(e, data);
-    //     }
-    // }
 
     #[inline]
     pub fn execute_post(&mut self, data: &BattleData) {

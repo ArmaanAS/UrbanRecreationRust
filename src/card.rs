@@ -79,7 +79,9 @@ impl CardAttr {
     }
     #[inline]
     pub fn remove_cancel(&mut self) {
-        self.cancelled -= 1;
+        if self.cancelled > 0 {
+            self.cancelled -= 1;
+        }
     }
     #[inline]
     pub fn protect(&mut self) {
@@ -284,7 +286,7 @@ fn split_lines(s: &String, len: usize, min: usize) -> Vec<String> {
 
     // let re = Regex::new(r" ").unwrap();
     // let words = re.split(s.trim());
-    let words = s.trim().split(" ");
+    let words = s.trim().split(' ');
 
     let mut line = "".to_string();
     for word in words {
@@ -631,32 +633,16 @@ impl Hand {
         (counts, clans[oculus_index])
     }
     pub fn get_leader(&self) -> Option<&Card> {
-        if self.index(0).clan() == Clan::Leader {
-            if self.index(1).clan() == Clan::Leader
-                || self.index(2).clan() == Clan::Leader
-                || self.index(3).clan() == Clan::Leader
-            {
-                return None;
+        let mut leader = None;
+        for i in 0..4 {
+            if self.index(i).clan() == Clan::Leader {
+                if leader.is_some() {
+                    return None;
+                }
+                leader = Some(self.index(i));
             }
-
-            return Some(self.index(0));
-        } else if self.index(1).clan() == Clan::Leader {
-            if self.index(2).clan() == Clan::Leader || self.index(3).clan() == Clan::Leader {
-                return None;
-            }
-
-            return Some(self.index(1));
-        } else if self.index(2).clan() == Clan::Leader {
-            if self.index(3).clan() == Clan::Leader {
-                return None;
-            }
-
-            return Some(self.index(2));
-        } else if self.index(3).clan() == Clan::Leader {
-            return Some(self.index(3));
         }
-
-        None
+        leader
     }
     pub fn random_hand_clan(clan: Clan) -> Self {
         let mut cards = CARD_CLANS[&clan]

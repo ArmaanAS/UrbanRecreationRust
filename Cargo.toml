@@ -20,6 +20,14 @@ rayon = "1.5.3"
 tinyvec = { version = "1.6.0", features = ["serde"] }
 actix-web = "4.2.1"
 actix-cors = "0.6.2"
+serde_json = "1.0.134"
+
+[dev-dependencies]
+criterion = "0.5.0"
 
 [profile.release]
 debug = true
+
+[[bench]]
+name = "stackvec4"
+harness = false

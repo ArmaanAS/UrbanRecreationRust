@@ -7,9 +7,11 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Hash)]
 #[repr(u8)]
 pub enum Clan {
+    None = 0,
     AllStars = 38,
     Bangers = 31,
     Berzerk = 46,
+    Cosmohnuts = 58,
     Dominion = 53,
     FangPiClang = 25,
     Freaks = 40,
@@ -40,7 +42,7 @@ pub enum Clan {
     UluWatu = 10,
     Uppers = 28,
     Vortex = 45,
-    None = 0,
+    Zenith = 59,
 }
 
 impl From<u8> for Clan {
@@ -50,6 +52,7 @@ impl From<u8> for Clan {
             38 => Clan::AllStars,
             31 => Clan::Bangers,
             46 => Clan::Berzerk,
+            58 => Clan::Cosmohnuts,
             53 => Clan::Dominion,
             25 => Clan::FangPiClang,
             40 => Clan::Freaks,
@@ -80,6 +83,7 @@ impl From<u8> for Clan {
             10 => Clan::UluWatu,
             28 => Clan::Uppers,
             45 => Clan::Vortex,
+            59 => Clan::Zenith,
             _ => panic!("Invalid clan id: {}", clan),
         }
     }
@@ -91,7 +95,7 @@ impl Clan {
         match self {
             Clan::AllStars | Clan::GhosTown => Color::BrightBlue,
             Clan::Freaks | Clan::Sakrohm | Clan::UluWatu | Clan::Uppers => Color::BrightGreen,
-            Clan::Roots => Color::Green,
+            Clan::Roots | Clan::Cosmohnuts => Color::Green,
             Clan::Montana | Clan::Pussycats => Color::BrightMagenta,
             Clan::Paradox | Clan::Skeelz | Clan::Dominion => Color::Magenta,
             Clan::Frozn => Color::BrightCyan,
@@ -104,9 +108,9 @@ impl Clan {
             | Clan::LaJunta
             | Clan::Raptors
             | Clan::Riots
-            | Self::Sentinel => Color::Yellow,
+            | Clan::Sentinel => Color::Yellow,
             Clan::Vortex | Clan::Nightmare => Color::BrightBlack,
-            Clan::Oblivion => Color::BrightWhite,
+            Clan::Oblivion | Clan::Zenith => Color::BrightWhite,
             Clan::None => unreachable!(),
         }
     }
@@ -119,39 +123,41 @@ impl Clan {
         format!(
             "[{}]",
             match self {
-                Clan::AllStars => "AlS",
-                Clan::Bangers => "Bgr",
-                Clan::Berzerk => "Bzk",
-                Clan::Dominion => "Dmn",
+                Clan::AllStars => "AllS",
+                Clan::Bangers => "Bngr",
+                Clan::Berzerk => "Bzrk",
+                Clan::Cosmohnuts => "Csmo",
+                Clan::Dominion => "Domn",
                 Clan::FangPiClang => "Fng",
-                Clan::Freaks => "Frk",
-                Clan::Frozn => "Fzn",
-                Clan::GHEIST => "Ght",
-                Clan::GhosTown => "GT",
-                Clan::Hive => "Hiv",
-                Clan::Huracan => "Hcn",
-                Clan::Jungo => "Jng",
-                Clan::Junkz => "Jkz",
-                Clan::Komboka => "Kmb",
-                Clan::LaJunta => "LaJ",
+                Clan::Freaks => "Frks",
+                Clan::Frozn => "Frzn",
+                Clan::GHEIST => "Ghst",
+                Clan::GhosTown => "GhTn",
+                Clan::Hive => "Hive",
+                Clan::Huracan => "Hrcn",
+                Clan::Jungo => "Jngo",
+                Clan::Junkz => "Jnkz",
+                Clan::Komboka => "Kmbk",
+                Clan::LaJunta => "LaJn",
                 Clan::Leader => "Ldr",
                 Clan::Montana => "Mtna",
-                Clan::Nightmare => "Ntm",
-                Clan::Oblivion => "Obl",
-                Clan::Oculus => "Ocu",
-                Clan::Paradox => "Pdx",
+                Clan::Nightmare => "Ntmr",
+                Clan::Oblivion => "Oblv",
+                Clan::Oculus => "Ocul",
+                Clan::Paradox => "Prdx",
                 Clan::Piranas => "Prna",
-                Clan::Pussycats => "Psy",
+                Clan::Pussycats => "Pssy",
                 Clan::Raptors => "Rptr",
-                Clan::Rescue => "Rsc",
-                Clan::Riots => "Rio",
-                Clan::Roots => "Roo",
-                Clan::Sakrohm => "Skm",
-                Clan::Sentinel => "Stl",
-                Clan::Skeelz => "Skl",
-                Clan::UluWatu => "Ulu",
-                Clan::Uppers => "Upp",
-                Clan::Vortex => "Vtx",
+                Clan::Rescue => "Rscu",
+                Clan::Riots => "Riot",
+                Clan::Roots => "Root",
+                Clan::Sakrohm => "Sakm",
+                Clan::Sentinel => "Sntl",
+                Clan::Skeelz => "Sklz",
+                Clan::UluWatu => "UluW",
+                Clan::Uppers => "Uprs",
+                Clan::Vortex => "Vrtx",
+                Clan::Zenith => "Znth",
                 Clan::None => unreachable!(),
             }
         )

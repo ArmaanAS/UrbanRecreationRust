@@ -1,5 +1,6 @@
 use core::sync::atomic::Ordering;
 use std::{
+    fmt::Display,
     io::{stdout, Write},
     slice::Iter,
     time::Instant,
@@ -29,6 +30,26 @@ pub enum SelectionResult {
     Player(Selection),
     Draw(Selection),
     Opponent(Selection),
+}
+
+impl Display for SelectionResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SelectionResult::Player(s) => {
+                    format!("Player({})", s).black().on_bright_blue()
+                }
+                SelectionResult::Draw(s) => {
+                    format!("Draw({})", s).black().on_bright_yellow()
+                }
+                SelectionResult::Opponent(s) => {
+                    format!("Opponent({})", s).black().on_bright_red()
+                }
+            }
+        )
+    }
 }
 
 pub fn toggle_print() {
@@ -165,10 +186,10 @@ impl Solver {
                 Solver::print_count(pillz, fury, wins, draws, losses);
             }
             // println!();
-            println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+            println!("({:.1?}%) {}", best_rate * 100f32, best_selection);
         }
 
-        println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+        println!("({:.1?}%) {}", best_rate * 100f32, best_selection);
     }
 
     fn middle_second_par(game: &Game) {
@@ -242,7 +263,7 @@ impl Solver {
                     Solver::print_count(pillz, fury, wins, draws, losses);
                 }
                 // println!();
-                println!("\n({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+                println!("\n({:.1?}%) {}", best_rate * 100f32, best_selection);
 
                 (best_rate, best_selection, best_rate_rounded)
             })
@@ -252,7 +273,7 @@ impl Solver {
         println!(
             "{}{}",
             format!(" {:.1?}% ", best_rate * 100f32).black().on_green(),
-            format!(" {:?} ", best_selection).green()
+            format!(" {} ", best_selection).green()
         );
     }
 
@@ -324,10 +345,10 @@ impl Solver {
                 Solver::print_count(pillz, fury, wins, draws, losses);
             }
             // println!();
-            println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+            println!("({:.1?}%) {}", best_rate * 100f32, best_selection);
         }
 
-        println!("({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+        println!("({:.1?}%) {}", best_rate * 100f32, best_selection);
     }
 
     fn middle_first_par(game: &Game) {
@@ -400,7 +421,7 @@ impl Solver {
                     Solver::print_count(pillz, fury, wins, draws, losses);
                 }
                 // println!();
-                println!("\n({:.1?}%) {:?}", best_rate * 100f32, best_selection);
+                println!("\n({:.1?}%) {}", best_rate * 100f32, best_selection);
 
                 (best_rate, best_selection, best_rate_rounded)
             })
@@ -410,7 +431,7 @@ impl Solver {
         println!(
             "{}{}",
             format!(" {:.1?}% ", best_rate * 100f32).black().on_green(),
-            format!(" {:?} ", best_selection).green()
+            format!(" {} ", best_selection).green()
         );
     }
 
@@ -799,4 +820,14 @@ fn test() {
     for i in 0..N {
         println!("{:?}", SPLIT_RANGES[i as usize]);
     }
+}
+
+#[test]
+fn f() {
+    println!("Test -> {}", SelectionResult::Player(Selection::default()));
+    println!("Test -> {}", SelectionResult::Draw(Selection::default()));
+    println!(
+        "Test -> {}",
+        SelectionResult::Opponent(Selection::default())
+    );
 }

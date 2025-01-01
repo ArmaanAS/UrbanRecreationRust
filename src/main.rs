@@ -19,8 +19,10 @@ mod game;
 mod modifiers;
 mod server;
 mod solver;
+mod solver_2;
+mod testcases;
 mod types;
-mod utils;
+pub mod utils;
 
 #[allow(unreachable_code)]
 #[actix_web::main]
@@ -75,7 +77,7 @@ async fn main() -> Result<()> {
         Solver::middle(&game);
     }
 
-    return Ok(());
+    // return Ok(());
 
     println!("{} turn", game.get_turn_name());
     for line in io::stdin().lines() {
@@ -108,9 +110,9 @@ async fn main() -> Result<()> {
         }
 
         let battled = game.select(index, pillz, fury);
-        if !battled {
-            game.print_status();
-        }
+        // if !battled {
+        //     game.print_status();
+        // }
         if game.status() != GameStatus::Playing {
             break;
         }
@@ -129,7 +131,7 @@ async fn main() -> Result<()> {
                 | (SelectionResult::Opponent(_), PlayerType::Player) => {
                     Solver::middle(&game);
                 }
-                (_, _) => println!("{:?}", best),
+                (_, _) => println!("{}", best),
             }
         }
 
